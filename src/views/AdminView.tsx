@@ -47,7 +47,7 @@ export const AdminView: React.FC = () => {
       </div>)}{!usuarios.length && <p className="p-6 text-sm text-stone-500">Nenhum usuário encontrado.</p>}</div>
     </section>
     <section className="card-gradient-hover bg-white rounded-2xl border border-stone-200 p-5 flex flex-col sm:flex-row gap-4 sm:items-center justify-between">
-      <div><div className="flex items-center gap-2"><Database className="w-5 h-5"/><h2 className="font-bold">Dados iniciais</h2></div><p className="text-sm text-stone-500 mt-1">O banco possui {distratos.length} distratos carregados nesta sessão.</p></div>
+      <div><div className="flex items-center gap-2"><Database className="w-5 h-5"/><h2 className="font-bold">Dados iniciais</h2></div><p className="text-sm text-stone-500 mt-1">Exibindo {distratos.length} distratos carregados do banco de dados.</p></div>
       <button onClick={importar} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#7e1d2c] text-[#7e1d2c] font-bold text-sm"><RefreshCw className="w-4 h-4"/>Importar dados iniciais</button>
     </section>
     <section className="grid md:grid-cols-2 gap-4"><div className="card-gradient-hover bg-white border rounded-2xl p-5"><Shield className="text-[#865d1d]"/><h3 className="font-bold mt-3">Contas individuais</h3><p className="text-sm text-stone-500 mt-1">Cada alteração usa o usuário autenticado, sem alternância de nomes.</p></div><div className="card-gradient-hover bg-white border rounded-2xl p-5"><CheckCircle2 className="text-emerald-600"/><h3 className="font-bold mt-3">Aprovação administrativa</h3><p className="text-sm text-stone-500 mt-1">Novas contas permanecem bloqueadas até receberem perfil e aprovação.</p></div></section>
