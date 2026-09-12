@@ -1,0 +1,277 @@
+@import "tailwindcss";
+
+@layer base {
+  html,
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    color: #0f172a;
+    background-color: #f8fafc;
+    -webkit-font-smoothing: antialiased;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  #root {
+    width: 100%;
+    max-width: 100vw;
+    min-width: 0;
+    overflow-x: clip;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button {
+    min-height: 40px;
+  }
+}
+
+/* Destaque visual reutilizável para os blocos principais do sistema. */
+.card-gradient-hover {
+  background-size: 180% 180%;
+  background-position: 100% 100%;
+  transition:
+    transform 220ms ease,
+    box-shadow 220ms ease,
+    border-color 220ms ease,
+    background-position 420ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .card-gradient-hover:hover {
+    transform: translateY(-4px);
+    border-color: rgba(168, 127, 59, 0.55);
+    background-image: linear-gradient(
+      135deg,
+      rgba(126, 29, 44, 0.075) 0%,
+      rgba(197, 155, 76, 0.13) 48%,
+      rgba(255, 255, 255, 0.96) 100%
+    );
+    background-position: 0% 0%;
+    box-shadow:
+      0 18px 38px rgba(34, 6, 9, 0.12),
+      0 4px 12px rgba(126, 29, 44, 0.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-gradient-hover {
+    transition: none;
+  }
+}
+
+.sidebar-nav-item,
+.sidebar-primary-action {
+  background-size: 220% 220%;
+  transition:
+    transform 200ms ease,
+    color 200ms ease,
+    box-shadow 200ms ease,
+    background-position 380ms ease;
+}
+
+.sidebar-nav-item-active {
+  background-image: linear-gradient(135deg, #220609 0%, #5f1522 58%, #936b2d 130%);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .sidebar-nav-item:hover,
+  .sidebar-primary-action:hover {
+    color: #fff;
+    transform: translateX(4px);
+    background-image: linear-gradient(110deg, #29080d 0%, #7e1d2c 58%, #c59b4c 125%);
+    background-position: 0% 50%;
+    box-shadow: 0 9px 22px rgba(79, 15, 25, 0.2);
+  }
+
+  .sidebar-nav-item:hover svg,
+  .sidebar-primary-action:hover svg {
+    color: #f0cf8e;
+  }
+
+  .sidebar-nav-item:hover .sidebar-nav-description {
+    color: #f4dfba;
+  }
+}
+
+.report-modal-overlay {
+  scrollbar-width: none;
+}
+
+.report-modal-overlay::-webkit-scrollbar {
+  display: none;
+}
+
+.distrato-table-shell {
+  background: linear-gradient(145deg, #f2ece4 0%, #faf7f2 52%, #efe5d8 100%);
+}
+
+.distrato-table {
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+
+.distrato-table thead th {
+  padding-top: 14px;
+  padding-bottom: 6px;
+}
+
+.distrato-table-row td {
+  background: linear-gradient(120deg, #ffffff 0%, #fcf8f3 70%, #f8f0e5 100%);
+  border-top: 1px solid #e5d8c5;
+  border-bottom: 1px solid #e5d8c5;
+  box-shadow: 0 5px 14px rgba(71, 45, 30, 0.055);
+  transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+}
+
+.distrato-table-row:nth-child(even) td {
+  background: linear-gradient(120deg, #fffdf9 0%, #f8f1e8 100%);
+}
+
+.distrato-table-row td:first-child {
+  border-left: 1px solid #e5d8c5;
+  border-radius: 12px 0 0 12px;
+}
+
+.distrato-table-row td:last-child {
+  border-right: 1px solid #e5d8c5;
+  border-radius: 0 12px 12px 0;
+}
+
+.detail-hero-card {
+  background-image: linear-gradient(155deg, #ffffff 0%, #fbf5ec 62%, #f4e8d7 100%);
+  border-color: #ddc9aa;
+  box-shadow: 0 12px 28px rgba(68, 34, 28, 0.09);
+}
+
+.detail-info-card {
+  background-image: linear-gradient(120deg, #fff9ef 0%, #f7ecdc 100%);
+  border-color: #dfc9a8;
+  border-left: 4px solid #a87f3b;
+  box-shadow: 0 6px 18px rgba(83, 55, 35, 0.07);
+}
+
+.verification-card {
+  background-image: linear-gradient(125deg, #ffffff 0%, #fdf8f1 58%, #f5eadc 100%);
+  border-color: #e2d2bc;
+  border-left: 4px solid #c59b4c;
+  box-shadow: 0 7px 18px rgba(72, 45, 29, 0.075);
+}
+
+.verification-card:nth-child(odd) {
+  background-image: linear-gradient(125deg, #fffefd 0%, #f8f1e8 100%);
+  border-left-color: #7e1d2c;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .distrato-table-row:hover td {
+    background: linear-gradient(115deg, #fffaf2 0%, #f2dfc4 54%, #ead1d5 135%);
+    border-color: #c59b4c;
+    box-shadow: 0 10px 24px rgba(88, 40, 34, 0.13);
+  }
+}
+
+/* Print styling for formal distrato report export */
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  html,
+  body {
+    background-color: #ffffff;
+    color: #000000;
+    width: 210mm;
+    max-width: none;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  #root {
+    width: 210mm;
+    max-width: none;
+    overflow: visible !important;
+  }
+
+  body > #root > div > header,
+  body > #root > div > div.flex-1 {
+    display: none !important;
+  }
+
+  .report-modal-overlay {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 210mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+    backdrop-filter: none !important;
+  }
+
+  .report-modal-sheet {
+    width: 210mm !important;
+    max-width: none !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+  }
+
+  .report-document {
+    padding: 7mm 10mm !important;
+    font-size: 9pt !important;
+    line-height: 1.2 !important;
+  }
+
+  .report-document > * + * {
+    margin-top: 3mm !important;
+  }
+
+  .report-document table th,
+  .report-document table td {
+    padding-top: 1.2mm !important;
+    padding-bottom: 1.2mm !important;
+  }
+
+  .report-document .report-financial-summary {
+    padding: 3mm !important;
+  }
+
+  .report-document .report-signatures {
+    padding-top: 5mm !important;
+    gap: 12mm !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  .report-document table,
+  .report-document tr,
+  .report-document section {
+    break-inside: avoid;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}

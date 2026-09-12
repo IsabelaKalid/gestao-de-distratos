@@ -1,0 +1,6 @@
+{
+  "name": "Gestão de Distratos - Agregados e Veículos",
+  "description": "Sistema corporativo para gerenciamento completo de distratos de agregados e veículos, auditoria de pendências, controle financeiro e fluxo jurídico.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
