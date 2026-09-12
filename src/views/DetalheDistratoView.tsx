@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ArrowLeft,
   Printer,
@@ -36,6 +36,7 @@ import {
   calcularSaldoRestante,
 } from '../utils/calculations';
 import { StatusBadge } from '../components/StatusBadge';
+import { supabase } from '../lib/supabase';
 import { Verificacao, StatusVerificacao, Pagamento } from '../types';
 
 interface DetalheDistratoViewProps {
@@ -71,6 +72,59 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   const [abaInterna, setAbaInterna] = useState<
     'auditorias' | 'financeiro' | 'juridico' | 'documentos' | 'historico'
   >('auditorias');
+  const arquivoInput = useRef<HTMLInputElement>(null);
+  const [enviandoArquivo, setEnviandoArquivo] = useState(false);
+  const [mensagemArquivo, setMensagemArquivo] = useState<string | null>(null);
+
+  const anexarArquivo = async (arquivo?: File) => {
+    if (!arquivo || !distrato) return;
+    setMensagemArquivo(null);
+    if (!['application/pdf', 'image/jpeg', 'image/png'].includes(arquivo.type) || arquivo.size > 10 * 1024 * 1024) {
+      setMensagemArquivo('Escolha um PDF, JPG ou PNG de até 10 MB.');
+      return;
+    }
+    setEnviandoArquivo(true);
+    try {
+      const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120);
+      const caminho = `${distrato.id}/${crypto.randomUUID()}-${nomeSeguro}`;
+      const { error } = await supabase.storage.from('documentos-distratos').upload(caminho, arquivo, {
+        contentType: arquivo.type,
+        upsert: false,
+      });
+      if (error) throw error;
+      adicionarDocumento(distrato.id, {
+        nome: arquivo.name, tipo: arquivo.type, tamanhoKb: Math.ceil(arquivo.size / 1024),
+        categoria: 'Documento Geral', url: caminho,
+      });
+      setMensagemArquivo('Arquivo enviado. Aguarde a confirmação de gravação do distrato na faixa superior.');
+    } catch (error) {
+      setMensagemArquivo(`Não foi possível enviar o arquivo: ${error instanceof Error ? error.message : 'erro desconhecido'}`);
+    } finally {
+      setEnviandoArquivo(false);
+      if (arquivoInput.current) arquivoInput.current.value = '';
+    }
+  };
+
+  const baixarArquivo = async (nome: string, caminho?: string) => {
+    if (!caminho) {
+      setMensagemArquivo('Este registro antigo contém apenas o nome do arquivo. Nenhum documento foi enviado.');
+      return;
+    }
+    setMensagemArquivo(null);
+    const { data, error } = await supabase.storage.from('documentos-distratos').download(caminho);
+    if (error || !data) {
+      setMensagemArquivo(`Não foi possível baixar o arquivo: ${error?.message || 'arquivo indisponível'}`);
+      return;
+    }
+    const endereco = URL.createObjectURL(data);
+    const link = document.createElement('a');
+    link.href = endereco;
+    link.download = nome;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(endereco), 60_000);
+  };
 
   // Estado para edição rápida de verificação
   const [editandoVerifId, setEditandoVerifId] = useState<string | null>(null);
@@ -95,18 +149,22 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   // Estado para protesto
   const [modalProtesto, setModalProtesto] = useState(false);
   const [formProtesto, setFormProtesto] = useState({
-    cartorio: '1º Tabelionato de Protesto de Títulos de Maringá/PR',
-    custas: '380,00',
-    dataEnvio: new Date().toISOString().slice(0, 10),
+    cartorio: '',
+    custas: '',
+    dataEnvio: '',
+    comprovanteId: '',
   });
+  const [modalEfetivacaoProtesto, setModalEfetivacaoProtesto] = useState(false);
+  const [formEfetivacaoProtesto, setFormEfetivacaoProtesto] = useState({ data: '', comprovanteId: '' });
 
   // Estado para ajuizamento
   const [modalAjuizamento, setModalAjuizamento] = useState(false);
   const [formAjuizamento, setFormAjuizamento] = useState({
-    numeroProcesso: '5004128-89.2026.8.16.0017',
-    varaComarca: '3ª Vara Cível da Comarca de Maringá/PR',
+    numeroProcesso: '',
+    varaComarca: '',
     valorAcao: '',
-    observacoes: 'Ação de Execução de Título Extrajudicial fundada em Termo de Distrato inadimplido.',
+    observacoes: '',
+    comprovanteId: '',
   });
 
   // Estado para reabertura de processo
@@ -131,6 +189,9 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   const dividaTotal = calcularDividaTotal(distrato);
   const totalPago = calcularTotalPago(distrato);
   const saldoRestante = calcularSaldoRestante(distrato);
+  const temPerfilJuridico = ['admin', 'juridico'].includes(usuarioAtual.perfil);
+  const podeRegistrarJuridico = temPerfilJuridico && saldoRestante > 0;
+  const comprovantesDisponiveis = distrato.documentos.filter((doc) => Boolean(doc.url));
 
   // Manipuladores de Verificação
   const handleIniciarEdicaoVerif = (v: Verificacao) => {
@@ -824,40 +885,41 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 <div className="space-y-2 text-xs">
                   <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200 space-y-1">
                     <p className="font-bold text-purple-950">Cartório de Registro:</p>
-                    <p className="text-purple-900">{distrato.cartorioProtesto || '1º Ofício de Protesto de Títulos'}</p>
+                    <p className="text-purple-900">{distrato.cartorioProtesto || 'Cartório não informado'}</p>
                     <p className="text-purple-800 text-[11px] mt-1">
-                      Data de envio: {distrato.dataProtestoEnvio ? formatarData(distrato.dataProtestoEnvio) : 'N/A'} • Custas: {formatarMoeda(distrato.custasCartorio || 0)}
+                      Data de envio: {distrato.dataEnvioProtesto ? formatarData(distrato.dataEnvioProtesto) : 'N/A'} • Custas: {formatarMoeda(distrato.custasCartorio || 0)}
                     </p>
+                    {distrato.comprovanteProtestoId && <p className="text-purple-800 text-[11px]">Comprovante vinculado: {distrato.documentos.find((doc) => doc.id === distrato.comprovanteProtestoId)?.nome || 'Documento não encontrado'}</p>}
                   </div>
 
-                  {!distrato.protestoEfetivado ? (
+                  {!distrato.dataEfetivacaoProtesto ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        const data = prompt('Data de efetivação do protesto (AAAA-MM-DD):', new Date().toISOString().slice(0, 10));
-                        if (data) efetivarProtesto(distrato.id, data);
-                      }}
-                      className="w-full py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-xs shadow-2xs cursor-pointer"
+                      disabled={!temPerfilJuridico}
+                      onClick={() => setModalEfetivacaoProtesto(true)}
+                      className="w-full py-2 bg-purple-700 hover:bg-purple-800 text-white rounded-lg font-bold text-xs shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Registrar Efetivação do Protesto no Cartório
                     </button>
                   ) : (
                     <div className="p-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-bold text-center">
-                      ✓ Protesto Efetivado em {formatarData(distrato.dataProtestoEfetivado!)}
+                      ✓ Protesto Efetivado em {formatarData(distrato.dataEfetivacaoProtesto)}
+                      {distrato.comprovanteEfetivacaoProtestoId && <span className="block mt-1">Comprovante: {distrato.documentos.find((doc) => doc.id === distrato.comprovanteEfetivacaoProtestoId)?.nome || 'Documento não encontrado'}</span>}
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="space-y-3">
                   <p className="text-xs text-stone-500">
-                    O distrato está apto para encaminhamento caso haja saldo vencido e conferência documental.
+                    Registre aqui apenas um encaminhamento realmente realizado fora do sistema, após conferência pelo jurídico.
                   </p>
                   <button
                     type="button"
+                    disabled={!podeRegistrarJuridico}
                     onClick={() => setModalProtesto(true)}
-                    className="w-full py-2 bg-[#7e1d2c] hover:bg-[#681623] text-stone-100 border border-[#c59b4c]/30 rounded-xl font-bold text-xs transition cursor-pointer"
+                    className="w-full py-2 bg-[#7e1d2c] hover:bg-[#681623] text-stone-100 border border-[#c59b4c]/30 rounded-xl font-bold text-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Encaminhar Processo para Protesto
+                    Registrar encaminhamento a protesto
                   </button>
                 </div>
               )}
@@ -887,19 +949,21 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                     <p className="font-bold text-rose-950 font-mono">
                       Processo: {distrato.numeroProcessoJudicial}
                     </p>
-                    <p className="text-rose-900">{distrato.varaComarcaJudicial}</p>
+                    <p className="text-rose-900">{distrato.varaComarca || 'Vara e comarca não informadas'}</p>
                     <p className="text-rose-800 text-[11px] mt-1">
                       Data da Distribuição: {distrato.dataAjuizamento ? formatarData(distrato.dataAjuizamento) : 'N/A'} • Valor da Causa: {formatarMoeda(distrato.valorAcaoJudicial || saldoRestante)}
                     </p>
+                    {distrato.comprovanteAjuizamentoId && <p className="text-rose-800 text-[11px]">Comprovante vinculado: {distrato.documentos.find((doc) => doc.id === distrato.comprovanteAjuizamentoId)?.nome || 'Documento não encontrado'}</p>}
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
                   <p className="text-xs text-stone-500">
-                    Ajuizamento perante o Poder Judiciário para penhora de bens ou bloqueio de contas do transportador.
+                    Registre aqui apenas um ajuizamento já realizado pelo jurídico fora deste sistema.
                   </p>
                   <button
                     type="button"
+                    disabled={!podeRegistrarJuridico}
                     onClick={() => {
                       setFormAjuizamento((prev) => ({
                         ...prev,
@@ -907,14 +971,15 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                       }));
                       setModalAjuizamento(true);
                     }}
-                    className="w-full py-2 bg-[#8e192a] hover:bg-[#721220] text-white rounded-xl font-bold text-xs transition cursor-pointer"
+                    className="w-full py-2 bg-[#8e192a] hover:bg-[#721220] text-white rounded-xl font-bold text-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Encaminhar para Ajuizamento Judicial
+                    Registrar ajuizamento realizado
                   </button>
                 </div>
               )}
             </div>
           </div>
+          {!podeRegistrarJuridico && <p className="text-sm text-amber-900">{saldoRestante <= 0 ? 'Registro indisponível: este distrato não possui saldo em aberto.' : 'Registro indisponível: exige perfil jurídico ou administrador.'}</p>}
         </div>
       )}
 
@@ -928,25 +993,26 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 Termos assinados, laudos fotográficos de pátio, certidões ANTT e comprovantes de pagamento.
               </p>
             </div>
+            <input
+              ref={arquivoInput}
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+              className="hidden"
+              aria-label="Escolher documento para anexar"
+              onChange={(event) => void anexarArquivo(event.target.files?.[0])}
+            />
             <button
               type="button"
-              onClick={() => {
-                const nome = prompt('Nome do documento / arquivo para anexar:', 'Laudo_Fotografico_Vistoria.pdf');
-                if (nome) {
-                  adicionarDocumento(distrato.id, {
-                    nome,
-                    tipo: 'application/pdf',
-                    tamanhoKb: 840,
-                    categoria: 'Laudo de Vistoria',
-                  });
-                }
-              }}
+              disabled={enviandoArquivo}
+              onClick={() => arquivoInput.current?.click()}
               className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-bold text-stone-100 bg-[#7e1d2c] hover:bg-[#681623] rounded-xl shadow-2xs transition cursor-pointer"
             >
               <Upload className="w-4 h-4 text-[#dfc28d]" />
-              <span>Anexar Arquivo</span>
+              <span>{enviandoArquivo ? 'Enviando…' : 'Anexar Arquivo'}</span>
             </button>
           </div>
+
+          {mensagemArquivo && <p role="status" className="text-sm text-[#7e1d2c]">{mensagemArquivo}</p>}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {distrato.documentos.map((doc) => (
@@ -971,7 +1037,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
 
                 <button
                   type="button"
-                  onClick={() => alert(`Download simulado do arquivo: ${doc.nome}`)}
+                  onClick={() => void baixarArquivo(doc.nome, doc.url)}
                   className="p-1.5 rounded-lg text-stone-400 hover:text-stone-700 hover:bg-stone-100 cursor-pointer"
                   title="Baixar arquivo"
                 >
@@ -1202,12 +1268,50 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
         </div>
       )}
 
+      {/* MODAL: EFETIVAÇÃO DO PROTESTO */}
+      {modalEfetivacaoProtesto && temPerfilJuridico && distrato.encaminhadoProtesto && !distrato.dataEfetivacaoProtesto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
+          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-stone-200 overflow-hidden">
+            <div className="px-6 py-4 bg-[#26070a] text-white flex items-center justify-between">
+              <h3 className="text-sm font-bold">Registrar efetivação comprovada do protesto</h3>
+              <button type="button" onClick={() => setModalEfetivacaoProtesto(false)} aria-label="Fechar"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-6 space-y-4 text-xs">
+              <p className="text-stone-600">Registre somente após receber a confirmação do cartório. Anexe o comprovante primeiro na aba Documentos & Comprovantes.</p>
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Data da efetivação</label>
+                <input type="date" value={formEfetivacaoProtesto.data} onChange={(e) => setFormEfetivacaoProtesto((prev) => ({ ...prev, data: e.target.value }))} className="w-full px-3 py-2 border border-stone-300 rounded-lg" />
+              </div>
+              <div>
+                <label className="block font-bold text-stone-700 mb-1">Comprovante da efetivação já anexado</label>
+                <select value={formEfetivacaoProtesto.comprovanteId} onChange={(e) => setFormEfetivacaoProtesto((prev) => ({ ...prev, comprovanteId: e.target.value }))} className="w-full px-3 py-2 border border-stone-300 rounded-lg">
+                  <option value="">Selecione um arquivo anexado</option>
+                  {comprovantesDisponiveis.map((doc) => <option key={doc.id} value={doc.id}>{doc.nome}</option>)}
+                </select>
+                {comprovantesDisponiveis.length === 0 && <p className="mt-1 text-amber-900">Nenhum arquivo anexado de verdade a este distrato.</p>}
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setModalEfetivacaoProtesto(false)} className="px-4 py-2 font-semibold text-stone-600">Cancelar</button>
+                <button type="button" onClick={() => {
+                  if (!formEfetivacaoProtesto.data || !comprovantesDisponiveis.some((doc) => doc.id === formEfetivacaoProtesto.comprovanteId)) {
+                    window.alert('Informe a data e selecione o comprovante real da efetivação.');
+                    return;
+                  }
+                  efetivarProtesto(distrato.id, formEfetivacaoProtesto.data, formEfetivacaoProtesto.comprovanteId);
+                  setModalEfetivacaoProtesto(false);
+                }} className="px-4 py-2 font-bold text-white bg-purple-700 hover:bg-purple-800 rounded-lg">Confirmar registro interno</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODAL: PROTESTO */}
-      {modalProtesto && (
+      {modalProtesto && podeRegistrarJuridico && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-stone-200 overflow-hidden">
             <div className="px-6 py-4 bg-[#26070a] border-b border-[#a87f3b]/30 text-white flex items-center justify-between">
-              <h3 className="text-sm font-bold text-stone-100">Encaminhar para Protesto Extrajudicial</h3>
+              <h3 className="text-sm font-bold text-stone-100">Registrar protesto realizado fora do sistema</h3>
               <button
                 type="button"
                 onClick={() => setModalProtesto(false)}
@@ -1255,6 +1359,15 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 </div>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Comprovante do encaminhamento já anexado</label>
+                <select value={formProtesto.comprovanteId} onChange={(e) => setFormProtesto((prev) => ({ ...prev, comprovanteId: e.target.value }))} className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                  <option value="">Selecione um arquivo anexado</option>
+                  {comprovantesDisponiveis.map((doc) => <option key={doc.id} value={doc.id}>{doc.nome}</option>)}
+                </select>
+                {comprovantesDisponiveis.length === 0 && <p className="mt-1 text-amber-900">Anexe primeiro o comprovante em Documentos & Comprovantes.</p>}
+              </div>
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -1266,13 +1379,15 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    if (!formProtesto.cartorio.trim() || !formProtesto.dataEnvio) { window.alert('Informe o cartório e a data reais.'); return; }
+                    if (!comprovantesDisponiveis.some((doc) => doc.id === formProtesto.comprovanteId)) { window.alert('Selecione o comprovante real do encaminhamento.'); return; }
                     const custas = parseFloat(formProtesto.custas.replace(',', '.')) || 0;
-                    encaminharParaProtesto(distrato.id, formProtesto.cartorio, custas, formProtesto.dataEnvio);
+                    encaminharParaProtesto(distrato.id, formProtesto.cartorio, custas, formProtesto.dataEnvio, formProtesto.comprovanteId);
                     setModalProtesto(false);
                   }}
                   className="px-4 py-2 font-bold text-white bg-purple-700 hover:bg-purple-800 rounded-lg shadow-2xs cursor-pointer"
                 >
-                  Confirmar Envio a Protesto
+                  Confirmar registro interno do protesto
                 </button>
               </div>
             </div>
@@ -1281,7 +1396,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       )}
 
       {/* MODAL: AJUIZAMENTO */}
-      {modalAjuizamento && (
+      {modalAjuizamento && podeRegistrarJuridico && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
           <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-stone-200 overflow-hidden">
             <div className="px-6 py-4 bg-[#26070a] border-b border-[#a87f3b]/30 text-white flex items-center justify-between">
@@ -1338,6 +1453,15 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">Comprovante do ajuizamento já anexado</label>
+                <select value={formAjuizamento.comprovanteId} onChange={(e) => setFormAjuizamento((prev) => ({ ...prev, comprovanteId: e.target.value }))} className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg">
+                  <option value="">Selecione um arquivo anexado</option>
+                  {comprovantesDisponiveis.map((doc) => <option key={doc.id} value={doc.id}>{doc.nome}</option>)}
+                </select>
+                {comprovantesDisponiveis.length === 0 && <p className="mt-1 text-amber-900">Anexe primeiro o comprovante em Documentos & Comprovantes.</p>}
+              </div>
+
               <div className="pt-2 flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -1349,12 +1473,15 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 <button
                   type="button"
                   onClick={() => {
+                    if (!formAjuizamento.numeroProcesso.trim() || !formAjuizamento.varaComarca.trim()) { window.alert('Informe o número de processo e a vara reais.'); return; }
+                    if (!comprovantesDisponiveis.some((doc) => doc.id === formAjuizamento.comprovanteId)) { window.alert('Selecione o comprovante real do ajuizamento.'); return; }
                     const val = parseFloat(formAjuizamento.valorAcao.replace(',', '.')) || saldoRestante;
                     encaminharParaAjuizamento(distrato.id, {
                       numeroProcesso: formAjuizamento.numeroProcesso,
                       varaComarca: formAjuizamento.varaComarca,
                       valorAcao: val,
                       observacoes: formAjuizamento.observacoes,
+                      comprovanteId: formAjuizamento.comprovanteId,
                     });
                     setModalAjuizamento(false);
                   }}

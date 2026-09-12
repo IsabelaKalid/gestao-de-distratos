@@ -204,12 +204,15 @@ export interface Distrato {
   encaminhadoProtesto: boolean;
   dataEnvioProtesto?: string;
   dataEfetivacaoProtesto?: string;
+  comprovanteEfetivacaoProtestoId?: string;
   boletoProtestadoNumero?: string;
   cartorioProtesto?: string;
+  comprovanteProtestoId?: string;
   custasCartorio?: number;
   encaminhadoAjuizamento: boolean;
   dataAjuizamento?: string;
   numeroProcessoJudicial?: string;
+  comprovanteAjuizamentoId?: string;
   varaComarca?: string;
   valorAcaoJudicial?: number;
   resultadoNegativa?: string;

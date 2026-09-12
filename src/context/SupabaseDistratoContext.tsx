@@ -60,9 +60,10 @@ interface DistratoContextType {
     distratoId: string,
     cartorio: string,
     custas: number,
-    dataEnvio: string
+    dataEnvio: string,
+    comprovanteId: string
   ) => void;
-  efetivarProtesto: (distratoId: string, dataEfetivacao: string, obs?: string) => void;
+  efetivarProtesto: (distratoId: string, dataEfetivacao: string, comprovanteId: string, obs?: string) => void;
   encaminharParaAjuizamento: (
     distratoId: string,
     dadosJudiciais: {
@@ -70,6 +71,7 @@ interface DistratoContextType {
       varaComarca: string;
       valorAcao: number;
       observacoes?: string;
+      comprovanteId: string;
     }
   ) => void;
   adicionarDocumento: (
@@ -622,7 +624,8 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     distratoId: string,
     cartorio: string,
     custas: number,
-    dataEnvio: string
+    dataEnvio: string,
+    comprovanteId: string
   ) => {
     const agoraIso = new Date().toISOString();
 
@@ -630,9 +633,13 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       prev.map((d) => {
         if (d.id !== distratoId) return d;
 
+        const comprovante = d.documentos.find((doc) => doc.id === comprovanteId && doc.url);
+        if (!comprovante) return d;
+
         const distratoModificado: Distrato = {
           ...d,
           encaminhadoProtesto: true,
+          comprovanteProtestoId: comprovante.id,
           dataEnvioProtesto: dataEnvio,
           cartorioProtesto: cartorio,
           custasCartorio: custas,
@@ -649,7 +656,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               perfil: usuarioAtual.perfil,
               campoAlterado: 'Envio para Cartório de Protesto',
               valorAnterior: d.statusGeral,
-              valorNovo: `Enviado a ${cartorio} (Custas R$ ${custas.toFixed(2)})`,
+              valorNovo: `Enviado a ${cartorio} (Custas R$ ${custas.toFixed(2)}). Comprovante: ${comprovante.nome} (${comprovante.id})`,
             },
             ...d.historico,
           ],
@@ -660,16 +667,20 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     );
   };
 
-  const efetivarProtesto = (distratoId: string, dataEfetivacao: string, obs?: string) => {
+  const efetivarProtesto = (distratoId: string, dataEfetivacao: string, comprovanteId: string, obs?: string) => {
     const agoraIso = new Date().toISOString();
 
     setDistratos((prev) =>
       prev.map((d) => {
         if (d.id !== distratoId) return d;
 
+        const comprovante = d.documentos.find((doc) => doc.id === comprovanteId && doc.url);
+        if (!d.encaminhadoProtesto || d.dataEfetivacaoProtesto || !comprovante) return d;
+
         const distratoModificado: Distrato = {
           ...d,
           dataEfetivacaoProtesto: dataEfetivacao,
+          comprovanteEfetivacaoProtestoId: comprovante.id,
           observacoesJuridicas: obs ? `${d.observacoesJuridicas || ''} \n${obs}`.trim() : d.observacoesJuridicas,
           statusGeral: 'Em Protesto',
           dataUltimaAtualizacao: agoraIso,
@@ -683,7 +694,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               perfil: usuarioAtual.perfil,
               campoAlterado: 'Efetivação do Protesto em Cartório',
               valorAnterior: 'Em envio',
-              valorNovo: `Protesto lavrado na data ${dataEfetivacao}`,
+              valorNovo: `Protesto lavrado na data ${dataEfetivacao}. Comprovante: ${comprovante.nome} (${comprovante.id})`,
               justificativa: obs,
             },
             ...d.historico,
@@ -702,6 +713,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       varaComarca: string;
       valorAcao: number;
       observacoes?: string;
+      comprovanteId: string;
     }
   ) => {
     const agoraIso = new Date().toISOString();
@@ -711,9 +723,13 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       prev.map((d) => {
         if (d.id !== distratoId) return d;
 
+        const comprovante = d.documentos.find((doc) => doc.id === dadosJudiciais.comprovanteId && doc.url);
+        if (!comprovante) return d;
+
         const distratoModificado: Distrato = {
           ...d,
           encaminhadoAjuizamento: true,
+          comprovanteAjuizamentoId: comprovante.id,
           dataAjuizamento: hoje,
           numeroProcessoJudicial: dadosJudiciais.numeroProcesso,
           varaComarca: dadosJudiciais.varaComarca,
@@ -732,7 +748,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               perfil: usuarioAtual.perfil,
               campoAlterado: 'Ajuizamento de Ação Judicial',
               valorAnterior: d.statusGeral,
-              valorNovo: `Processo nº ${dadosJudiciais.numeroProcesso} (${dadosJudiciais.varaComarca}) - Valor R$ ${dadosJudiciais.valorAcao.toFixed(2)}`,
+              valorNovo: `Processo nº ${dadosJudiciais.numeroProcesso} (${dadosJudiciais.varaComarca}) - Valor R$ ${dadosJudiciais.valorAcao.toFixed(2)}. Comprovante: ${comprovante.nome} (${comprovante.id})`,
               justificativa: dadosJudiciais.observacoes,
             },
             ...d.historico,
