@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import type { PerfilAcesso, Usuario } from '../types';
@@ -9,6 +9,7 @@ type AuthContextType = {
   authUser: User | null;
   perfil: UsuarioAutenticado | null;
   carregando: boolean;
+  erroPerfil: string | null;
   entrar: (email: string, senha: string) => Promise<string | null>;
   cadastrar: (nome: string, email: string, senha: string) => Promise<string | null>;
   sair: () => Promise<void>;
@@ -35,29 +36,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [perfil, setPerfil] = useState<UsuarioAutenticado | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [erroPerfil, setErroPerfil] = useState<string | null>(null);
+  const requisicaoAtual = useRef(0);
 
-  const carregarPerfil = async (user: User | null) => {
-    if (!user) {
-      setPerfil(null);
-      return;
+  const carregarSessaoEPerfil = async (proximaSessao: Session | null) => {
+    const requisicao = ++requisicaoAtual.current;
+    setCarregando(true);
+    setErroPerfil(null);
+    setSession(proximaSessao);
+    setPerfil(null);
+    try {
+      if (proximaSessao?.user) {
+        const { data, error } = await supabase.from('profiles').select('*').eq('id', proximaSessao.user.id).single();
+        if (error) throw error;
+        if (requisicao === requisicaoAtual.current) setPerfil(mapPerfil(data));
+      }
+    } catch {
+      if (requisicao === requisicaoAtual.current) setErroPerfil('Não foi possível consultar seu perfil. Verifique a conexão e tente novamente.');
+    } finally {
+      if (requisicao === requisicaoAtual.current) setCarregando(false);
     }
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).single();
-    if (error) throw error;
-    setPerfil(mapPerfil(data));
   };
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      try { await carregarPerfil(data.session?.user ?? null); } finally { setCarregando(false); }
+    let ativo = true;
+    let eventoAuthRecebido = false;
+    supabase.auth.getSession().then(({ data, error }) => {
+      if (!ativo || eventoAuthRecebido) return;
+      if (error) throw error;
+      void carregarSessaoEPerfil(data.session);
+    }).catch(() => {
+      if (ativo) { setErroPerfil('Não foi possível consultar sua sessão. Tente recarregar a página.'); setCarregando(false); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
+      eventoAuthRecebido = true;
+      // O perfil é buscado fora do callback para não bloquear o cliente de autenticação.
+      setCarregando(true);
       setTimeout(async () => {
-        try { await carregarPerfil(nextSession?.user ?? null); } finally { setCarregando(false); }
+        if (ativo) await carregarSessaoEPerfil(nextSession);
       }, 0);
     });
-    return () => listener.subscription.unsubscribe();
+    return () => { ativo = false; requisicaoAtual.current++; listener.subscription.unsubscribe(); };
   }, []);
 
   const entrar = async (email: string, senha: string) => {
@@ -88,9 +107,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return error?.message ?? null;
   };
 
-  const recarregarPerfil = async () => carregarPerfil(session?.user ?? null);
+  const recarregarPerfil = async () => carregarSessaoEPerfil(session);
 
-  return <AuthContext.Provider value={{ session, authUser: session?.user ?? null, perfil, carregando, entrar, cadastrar, sair, recuperarSenha, atualizarPerfil, recarregarPerfil }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ session, authUser: session?.user ?? null, perfil, carregando, erroPerfil, entrar, cadastrar, sair, recuperarSenha, atualizarPerfil, recarregarPerfil }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

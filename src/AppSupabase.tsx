@@ -16,6 +16,8 @@ import { Loader2, ShieldAlert } from 'lucide-react';
 
 function AppContent() {
   const { distratos, distratoSelecionadoId, selecionarDistrato, estadoSalvamento, erroDados, carregandoDados, tentarSalvarNovamente } = useDistratos();
+  const { perfil } = useAuth();
+  const exibirStatus = perfil?.perfil === 'admin' || carregandoDados || estadoSalvamento !== 'salvo' || Boolean(erroDados);
 
   // Abas de navegação principais
   const [abaAtiva, setAbaAtiva] = useState<'dashboard' | 'lista' | 'tarefas' | 'admin'>('dashboard');
@@ -49,11 +51,11 @@ function AppContent() {
         onToggleSidebarMobile={() => setSidebarMobileAberto((prev) => !prev)}
       />
 
-      <div role={estadoSalvamento === 'erro' || (erroDados && !carregandoDados) ? 'alert' : 'status'} aria-live="polite" className={`px-4 py-2 text-center text-sm font-semibold ${estadoSalvamento === 'erro' || (erroDados && !carregandoDados) ? 'bg-red-100 text-red-900' : estadoSalvamento === 'salvando' || carregandoDados ? 'bg-amber-50 text-amber-900' : 'bg-emerald-50 text-emerald-900'}`}>
+      {exibirStatus && <div role={estadoSalvamento === 'erro' || (erroDados && !carregandoDados) ? 'alert' : 'status'} aria-live="polite" className={`px-4 py-2 text-center text-sm font-semibold ${estadoSalvamento === 'erro' || (erroDados && !carregandoDados) ? 'bg-red-100 text-red-900' : estadoSalvamento === 'salvando' || carregandoDados ? 'bg-amber-50 text-amber-900' : 'bg-emerald-50 text-emerald-900'}`}>
         {carregandoDados ? 'Carregando distratos do banco de dados…' : estadoSalvamento === 'erro' ? (
           <>Alterações de distratos não salvas{erroDados ? `: ${erroDados}` : '.'} Não feche esta página. <button type="button" onClick={tentarSalvarNovamente} className="underline font-bold">Tentar novamente</button></>
         ) : erroDados ? `Falha ao consultar ou sincronizar dados: ${erroDados}` : estadoSalvamento === 'salvando' ? 'Salvando alterações de distratos no banco… Não feche esta página.' : 'Distratos sincronizados com o banco de dados.'}
-      </div>
+      </div>}
 
       {/* Layout com Sidebar e Área Principal de Conteúdo */}
       <div className="flex-1 flex max-w-7xl w-full min-w-0 mx-auto items-start">
@@ -134,8 +136,9 @@ function AppContent() {
 }
 
 function AppGate() {
-  const { session, perfil, carregando, sair } = useAuth();
+  const { session, perfil, carregando, erroPerfil, recarregarPerfil, sair } = useAuth();
   if (carregando) return <div className="min-h-screen grid place-items-center bg-[#faf8f5]"><Loader2 className="w-8 h-8 text-[#7e1d2c] animate-spin" /></div>;
+  if (erroPerfil) return <div className="min-h-screen grid place-items-center bg-[#faf8f5] p-6"><div role="alert" className="max-w-md bg-white border rounded-2xl shadow-lg p-8 text-center"><ShieldAlert className="w-10 h-10 mx-auto text-amber-600"/><h1 className="text-xl font-black mt-4">Não foi possível carregar seu acesso</h1><p className="text-sm text-stone-600 mt-2">{erroPerfil}</p><button type="button" onClick={() => void recarregarPerfil()} className="mt-6 px-4 py-2 rounded-xl border font-semibold">Tentar novamente</button></div></div>;
   if (!session) return <AuthView />;
   if (!perfil?.aprovado || !perfil.ativo || String(perfil.perfil) === 'pendente') return <div className="min-h-screen grid place-items-center bg-[#faf8f5] p-6"><div className="max-w-md bg-white border rounded-2xl shadow-lg p-8 text-center"><ShieldAlert className="w-10 h-10 mx-auto text-amber-600"/><h1 className="text-xl font-black mt-4">Conta aguardando aprovação</h1><p className="text-sm text-stone-600 mt-2">Seu cadastro foi recebido. Um administrador precisa definir seu perfil antes do primeiro acesso.</p><button onClick={sair} className="mt-6 px-4 py-2 rounded-xl border font-semibold">Sair</button></div></div>;
   return <DistratoProvider><AppContent /></DistratoProvider>;
