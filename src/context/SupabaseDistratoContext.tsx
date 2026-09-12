@@ -89,6 +89,8 @@ interface DistratoContextType {
   resetarDados: () => void;
   carregandoDados: boolean;
   erroDados: string | null;
+  estadoSalvamento: 'salvo' | 'salvando' | 'erro';
+  tentarSalvarNovamente: () => void;
 }
 
 const DistratoContext = createContext<DistratoContextType | null>(null);
@@ -101,6 +103,12 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [carregandoDados, setCarregandoDados] = useState(true);
   const [erroDados, setErroDados] = useState<string | null>(null);
+  const [estadoSalvamento, setEstadoSalvamento] = useState<'salvo' | 'salvando' | 'erro'>('salvo');
+  const [tentativa, setTentativa] = useState(0);
+  const salvos = useRef(new Map<string, string>());
+  const atuais = useRef<Distrato[]>([]);
+  const gravando = useRef(false);
+  const [versao, setVersao] = useState(0);
   const hidratado = useRef(false);
 
   const [distratoSelecionadoId, setDistratoSelecionadoId] = useState<string | null>(null);
@@ -115,7 +123,10 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       ]);
       const falha = resDistratos.error || resNotificacoes.error || resUsuarios.error;
       if (falha) { setErroDados(falha.message); setCarregandoDados(false); return; }
-      setDistratos((resDistratos.data || []).map((row: any) => row.dados as Distrato));
+      const iniciais = (resDistratos.data || []).map((row: any) => row.dados as Distrato);
+      salvos.current = new Map(iniciais.map((d: Distrato) => [d.id, JSON.stringify(d)]));
+      atuais.current = iniciais;
+      setDistratos(iniciais);
       setNotificacoes((resNotificacoes.data || []).map((row: any) => row.dados as Notificacao));
       setUsuarios((resUsuarios.data || []).map((u: any) => ({ id:u.id, nome:u.nome, email:u.email, perfil:u.perfil, departamento:u.departamento || '', cargo:u.cargo || '', avatar:u.avatar_url || undefined })));
       hidratado.current = true;
@@ -126,14 +137,56 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   useEffect(() => {
     if (!hidratado.current || !usuarioAtual) return;
+    atuais.current = distratos;
+    const pendentes = () => atuais.current.filter(d => salvos.current.get(d.id) !== JSON.stringify(d));
+    if (!pendentes().length) {
+      if (!gravando.current) setEstadoSalvamento('salvo');
+      return;
+    }
+    setEstadoSalvamento('salvando');
     const timer = window.setTimeout(async () => {
-      if (distratos.length) {
-        const { error } = await supabase.from('distratos').upsert(distratos.map((d) => ({ id: d.id, dados: d, updated_at: new Date().toISOString(), updated_by: usuarioAtual.id })));
-        if (error) setErroDados(error.message);
+      if (gravando.current) return;
+      gravando.current = true;
+      let houveErro = false;
+      try {
+        // Uma gravação por vez impede que respostas fora de ordem sobrescrevam
+        // uma alteração mais recente feita nesta mesma janela.
+        while (pendentes().length) {
+          const d = pendentes()[0];
+          const conteudo = JSON.stringify(d);
+          const { error } = await supabase.from('distratos').upsert({
+            id: d.id, dados: d, updated_at: new Date().toISOString(), updated_by: usuarioAtual.id,
+          });
+          if (error) throw error;
+          salvos.current.set(d.id, conteudo);
+        }
+        setErroDados(null);
+        setEstadoSalvamento('salvo');
+      } catch (error) {
+        houveErro = true;
+        setErroDados(error instanceof Error ? error.message : 'Não foi possível gravar os dados.');
+        setEstadoSalvamento('erro');
+      } finally {
+        gravando.current = false;
+        if (pendentes().length && !houveErro) setVersao(v => v + 1);
       }
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [distratos, usuarioAtual?.id]);
+  }, [distratos, usuarioAtual?.id, tentativa, versao]);
+
+  useEffect(() => {
+    const avisar = (event: BeforeUnloadEvent) => {
+      if (estadoSalvamento !== 'salvo') { event.preventDefault(); event.returnValue = ''; }
+    };
+    window.addEventListener('beforeunload', avisar);
+    return () => window.removeEventListener('beforeunload', avisar);
+  }, [estadoSalvamento]);
+
+  const tentarSalvarNovamente = () => {
+    setErroDados(null);
+    setEstadoSalvamento('salvando');
+    setTentativa(n => n + 1);
+  };
 
   useEffect(() => {
     if (!hidratado.current || !usuarioAtual) return;
@@ -845,6 +898,8 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         resetarDados,
         carregandoDados,
         erroDados,
+        estadoSalvamento,
+        tentarSalvarNovamente,
       }}
     >
       {children}

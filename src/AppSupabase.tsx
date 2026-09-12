@@ -15,7 +15,7 @@ import { AuthView } from './views/AuthView';
 import { Loader2, ShieldAlert } from 'lucide-react';
 
 function AppContent() {
-  const { distratos, distratoSelecionadoId, selecionarDistrato } = useDistratos();
+  const { distratos, distratoSelecionadoId, selecionarDistrato, estadoSalvamento, erroDados, carregandoDados, tentarSalvarNovamente } = useDistratos();
 
   // Abas de navegação principais
   const [abaAtiva, setAbaAtiva] = useState<'dashboard' | 'lista' | 'tarefas' | 'admin'>('dashboard');
@@ -48,6 +48,12 @@ function AppContent() {
         onOpenNovoDistrato={() => setModalNovoDistratoAberto(true)}
         onToggleSidebarMobile={() => setSidebarMobileAberto((prev) => !prev)}
       />
+
+      <div role={estadoSalvamento === 'erro' || (erroDados && !carregandoDados) ? 'alert' : 'status'} aria-live="polite" className={`px-4 py-2 text-center text-sm font-semibold ${estadoSalvamento === 'erro' || (erroDados && !carregandoDados) ? 'bg-red-100 text-red-900' : estadoSalvamento === 'salvando' || carregandoDados ? 'bg-amber-50 text-amber-900' : 'bg-emerald-50 text-emerald-900'}`}>
+        {carregandoDados ? 'Carregando distratos do banco de dados…' : estadoSalvamento === 'erro' ? (
+          <>Alterações de distratos não salvas{erroDados ? `: ${erroDados}` : '.'} Não feche esta página. <button type="button" onClick={tentarSalvarNovamente} className="underline font-bold">Tentar novamente</button></>
+        ) : erroDados ? `Falha ao consultar ou sincronizar dados: ${erroDados}` : estadoSalvamento === 'salvando' ? 'Salvando alterações de distratos no banco… Não feche esta página.' : 'Distratos sincronizados com o banco de dados.'}
+      </div>
 
       {/* Layout com Sidebar e Área Principal de Conteúdo */}
       <div className="flex-1 flex max-w-7xl w-full min-w-0 mx-auto items-start">
