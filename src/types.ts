@@ -6,6 +6,10 @@ export type PerfilAcesso =
   | 'financeiro'
   | 'juridico';
 
+export type AbaSistema =
+  | 'dashboard' | 'lista' | 'tarefas' | 'financeiro' | 'juridico'
+  | 'documentos' | 'auditoria' | 'relatorios' | 'admin';
+
 export type StatusDistrato =
   | 'Em Aberto'
   | 'Em Auditoria'

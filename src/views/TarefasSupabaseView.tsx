@@ -106,7 +106,7 @@ export const TarefasView: React.FC<TarefasViewProps> = ({ onVerDetalhe }) => {
           </h1>
           <p className="text-xs text-stone-500 mt-1">
             Visualizando pendências designadas ao perfil logado:{' '}
-            <strong className="text-stone-800">{usuarioAtual.nome} ({usuarioAtual.perfil})</strong>
+            <strong className="text-stone-800">{usuarioAtual.nome} ({usuarioAtual.perfil === 'admin' ? 'supervisor' : usuarioAtual.perfil})</strong>
           </p>
         </div>
 

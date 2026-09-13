@@ -22,7 +22,6 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
   // Formulário em etapas
   const [form, setForm] = useState({
     agregadoNome: '',
-    agregadoCodigo: '',
     tipoDistrato: 'Cavalo e Carreta' as Distrato['tipoDistrato'],
     placaCavalo: '',
     placaCarreta: '',
@@ -60,10 +59,6 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
         setErroValidacao('Informe o nome completo ou razão social do agregado.');
         return;
       }
-      if (!form.agregadoCodigo.trim()) {
-        setErroValidacao('Informe o código interno do agregado (ex: AGR-1090).');
-        return;
-      }
       setEtapa(2);
     } else if (etapa === 2) {
       if (form.tipoDistrato !== 'Carreta' && !form.placaCavalo.trim()) {
@@ -90,7 +85,6 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
     try {
       const idGerado = criarDistrato({
         agregadoNome: form.agregadoNome,
-        agregadoCodigo: form.agregadoCodigo.toUpperCase(),
         placaCavalo: form.placaCavalo,
         placaCarreta: form.placaCarreta,
         tipoDistrato: form.tipoDistrato,
@@ -104,7 +98,6 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
       setEtapa(1);
       setForm({
         agregadoNome: '',
-        agregadoCodigo: '',
         tipoDistrato: 'Cavalo e Carreta',
         placaCavalo: '',
         placaCarreta: '',
@@ -217,19 +210,9 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Código do Agregado <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="agregadoCodigo"
-                    value={form.agregadoCodigo}
-                    onChange={handleChange}
-                    placeholder="Ex: AGR-5520"
-                    className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none font-mono uppercase"
-                    required
-                  />
+                <div className="rounded-lg border border-[#d8bd86] bg-[#fbf6ee] px-3.5 py-2">
+                  <p className="text-xs font-bold text-stone-700">Código do Agregado</p>
+                  <p className="mt-1 text-xs text-[#7e1d2c]">Gerado automaticamente pelo sistema ao salvar.</p>
                 </div>
 
                 <div>

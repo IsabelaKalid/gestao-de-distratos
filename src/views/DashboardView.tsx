@@ -198,8 +198,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <div className="space-y-6 pb-12">
       {/* Banner de Boas-Vindas Executivo Transpanorama */}
-      <div className="rounded-2xl bg-gradient-to-r from-[#220609] via-[#2f080e] to-[#1c0406] p-6 sm:p-8 text-white shadow-lg border border-[#a87f3b]/30">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#220609] via-[#2f080e] to-[#1c0406] p-6 sm:p-8 text-white shadow-lg border border-[#a87f3b]/30">
+        <div className="absolute inset-y-0 right-0 hidden lg:block w-[42%] bg-cover bg-center opacity-45" style={{ backgroundImage: "linear-gradient(to right, #220609 0%, transparent 55%), url('/assets/transpanorama-frota.png')" }} />
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-[#3d0f16] text-[#dfc28d] text-xs font-semibold mb-2 border border-[#c59b4c]/30">
               <Truck className="w-3.5 h-3.5 text-[#dfc28d]" />

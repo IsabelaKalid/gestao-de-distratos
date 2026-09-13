@@ -24,7 +24,6 @@ interface DistratoContextType {
   selecionarDistrato: (id: string | null) => void;
   criarDistrato: (dados: {
     agregadoNome: string;
-    agregadoCodigo: string;
     placaCavalo: string;
     placaCarreta: string;
     tipoDistrato: Distrato['tipoDistrato'];
@@ -211,7 +210,6 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const criarDistrato = (dados: {
     agregadoNome: string;
-    agregadoCodigo: string;
     placaCavalo: string;
     placaCarreta: string;
     tipoDistrato: Distrato['tipoDistrato'];
@@ -221,8 +219,16 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     statusTermoAgregacao: Distrato['statusTermoAgregacao'];
   }): string => {
     const anoAtual = new Date().getFullYear();
-    const count = distratos.length + 1;
-    const novoId = `DIS-${anoAtual}-${String(count).padStart(3, '0')}`;
+    const maiorNumeroDistrato = distratos.reduce((maior, item) => {
+      const correspondencia = item.id.match(new RegExp(`^DIS-${anoAtual}-(\\d+)$`));
+      return correspondencia ? Math.max(maior, Number(correspondencia[1])) : maior;
+    }, 0);
+    const maiorCodigoAgregado = distratos.reduce((maior, item) => {
+      const correspondencia = item.agregadoCodigo?.match(/(\d+)$/);
+      return correspondencia ? Math.max(maior, Number(correspondencia[1])) : maior;
+    }, 999);
+    const novoId = `DIS-${anoAtual}-${String(maiorNumeroDistrato + 1).padStart(3, '0')}`;
+    const novoCodigoAgregado = `AGR-TP-${maiorCodigoAgregado + 1}`;
     const agoraIso = new Date().toISOString();
     const hoje = agoraIso.split('T')[0];
 
@@ -230,7 +236,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       id: novoId,
       agregadoId: `agr-${Date.now()}`,
       agregadoNome: dados.agregadoNome,
-      agregadoCodigo: dados.agregadoCodigo,
+      agregadoCodigo: novoCodigoAgregado,
       dataSolicitacao: hoje,
       statusTermoAgregacao: dados.statusTermoAgregacao,
       placaCavalo: dados.placaCavalo.toUpperCase().trim(),
@@ -824,7 +830,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               perfil: usuarioAtual.perfil,
               campoAlterado: 'Reabertura do Processo',
               valorAnterior: d.statusGeral,
-              valorNovo: 'Em Aberto (Reaberto pelo Administrador)',
+              valorNovo: 'Em Aberto (Reaberto pelo Supervisor)',
               justificativa,
             },
             ...d.historico,

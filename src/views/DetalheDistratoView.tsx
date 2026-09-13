@@ -572,7 +572,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                   {estaEditando && (
                     <div className="mt-4 pt-4 border-t border-stone-200 bg-[#faf8f5] -mx-4 -mb-4 p-4 rounded-b-xl space-y-3">
                       <div className="text-xs font-bold text-[#7e1d2c] uppercase tracking-wider">
-                        Atualizar Auditoria do Item • {usuarioAtual.nome} ({usuarioAtual.perfil})
+                        Atualizar Auditoria do Item • {usuarioAtual.nome} ({usuarioAtual.perfil === 'admin' ? 'supervisor' : usuarioAtual.perfil})
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -979,7 +979,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
               )}
             </div>
           </div>
-          {!podeRegistrarJuridico && <p className="text-sm text-amber-900">{saldoRestante <= 0 ? 'Registro indisponível: este distrato não possui saldo em aberto.' : 'Registro indisponível: exige perfil jurídico ou administrador.'}</p>}
+          {!podeRegistrarJuridico && <p className="text-sm text-amber-900">{saldoRestante <= 0 ? 'Registro indisponível: este distrato não possui saldo em aberto.' : 'Registro indisponível: exige perfil jurídico ou supervisor.'}</p>}
         </div>
       )}
 

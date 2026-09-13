@@ -9,7 +9,8 @@ import { ListaDistratosView } from './views/ListaDistratosView';
 import { DetalheDistratoView } from './views/DetalheDistratoView';
 import { TarefasView } from './views/TarefasSupabaseView';
 import { AdminView } from './views/AdminView';
-import { Distrato } from './types';
+import { ModuloOperacionalView } from './views/ModuloOperacionalView';
+import { AbaSistema, Distrato } from './types';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AuthView } from './views/AuthView';
 import { Loader2, ShieldAlert } from 'lucide-react';
@@ -20,7 +21,7 @@ function AppContent() {
   const exibirStatus = perfil?.perfil === 'admin' || carregandoDados || estadoSalvamento !== 'salvo' || Boolean(erroDados);
 
   // Abas de navegação principais
-  const [abaAtiva, setAbaAtiva] = useState<'dashboard' | 'lista' | 'tarefas' | 'admin'>('dashboard');
+  const [abaAtiva, setAbaAtiva] = useState<AbaSistema>('dashboard');
 
   // Controle de Sidebar responsivo em dispositivos móveis
   const [sidebarMobileAberto, setSidebarMobileAberto] = useState(false);
@@ -107,6 +108,14 @@ function AppContent() {
                 <TarefasView onVerDetalhe={handleVerDistrato} />
               )}
 
+              {(['financeiro','juridico','documentos','auditoria','relatorios'] as const).includes(abaAtiva as any) && (
+                <ModuloOperacionalView
+                  modulo={abaAtiva as 'financeiro' | 'juridico' | 'documentos' | 'auditoria' | 'relatorios'}
+                  onVerDetalhe={handleVerDistrato}
+                  onImprimir={(d) => setDistratoParaImprimir(d)}
+                />
+              )}
+
               {abaAtiva === 'admin' && <AdminView />}
             </>
           )}
@@ -140,7 +149,7 @@ function AppGate() {
   if (carregando) return <div className="min-h-screen grid place-items-center bg-[#faf8f5]"><Loader2 className="w-8 h-8 text-[#7e1d2c] animate-spin" /></div>;
   if (erroPerfil) return <div className="min-h-screen grid place-items-center bg-[#faf8f5] p-6"><div role="alert" className="max-w-md bg-white border rounded-2xl shadow-lg p-8 text-center"><ShieldAlert className="w-10 h-10 mx-auto text-amber-600"/><h1 className="text-xl font-black mt-4">Não foi possível carregar seu acesso</h1><p className="text-sm text-stone-600 mt-2">{erroPerfil}</p><button type="button" onClick={() => void recarregarPerfil()} className="mt-6 px-4 py-2 rounded-xl border font-semibold">Tentar novamente</button></div></div>;
   if (!session) return <AuthView />;
-  if (!perfil?.aprovado || !perfil.ativo || String(perfil.perfil) === 'pendente') return <div className="min-h-screen grid place-items-center bg-[#faf8f5] p-6"><div className="max-w-md bg-white border rounded-2xl shadow-lg p-8 text-center"><ShieldAlert className="w-10 h-10 mx-auto text-amber-600"/><h1 className="text-xl font-black mt-4">Conta aguardando aprovação</h1><p className="text-sm text-stone-600 mt-2">Seu cadastro foi recebido. Um administrador precisa definir seu perfil antes do primeiro acesso.</p><button onClick={sair} className="mt-6 px-4 py-2 rounded-xl border font-semibold">Sair</button></div></div>;
+  if (!perfil?.aprovado || !perfil.ativo || String(perfil.perfil) === 'pendente') return <div className="min-h-screen grid place-items-center bg-[#faf8f5] p-6"><div className="max-w-md bg-white border rounded-2xl shadow-lg p-8 text-center"><ShieldAlert className="w-10 h-10 mx-auto text-amber-600"/><h1 className="text-xl font-black mt-4">Conta aguardando aprovação</h1><p className="text-sm text-stone-600 mt-2">Seu cadastro foi recebido. Um supervisor precisa definir seu perfil antes do primeiro acesso.</p><button onClick={sair} className="mt-6 px-4 py-2 rounded-xl border font-semibold">Sair</button></div></div>;
   return <DistratoProvider><AppContent /></DistratoProvider>;
 }
 

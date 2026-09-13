@@ -444,7 +444,7 @@ export const ListaDistratosView: React.FC<ListaDistratosViewProps> = ({
                     >
                       {/* ID */}
                       <td className="py-3 px-4">
-                        <span className="font-mono font-bold text-stone-900 bg-stone-100 group-hover:bg-[#f5ebd7] px-2 py-0.5 rounded border border-stone-200/60 transition">
+                        <span className="font-mono font-bold text-stone-900 bg-stone-100 group-hover:bg-white px-2 py-0.5 rounded border border-stone-200/60 group-hover:border-[#d7b9be] transition">
                           {proc.id}
                         </span>
                       </td>

@@ -115,8 +115,39 @@
   display: none;
 }
 
+.brand-logo {
+  aspect-ratio: 5.25 / 1;
+  background-image: url('/assets/transpanorama-frota.png');
+  background-repeat: no-repeat;
+  background-size: 147% auto;
+  background-position: 54% 22.5%;
+  border-radius: 8px;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+}
+
+.brand-action {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  transition: transform 220ms ease, box-shadow 220ms ease, background-color 220ms ease, color 220ms ease;
+}
+
+.brand-action::after {
+  content: '';
+  position: absolute;
+  inset: -50% -25%;
+  z-index: -1;
+  background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, 0.32) 50%, transparent 62%);
+  transform: translateX(-120%) skewX(-15deg);
+  transition: transform 520ms ease;
+}
+
+.brand-feature {
+  transition: transform 220ms ease, border-color 220ms ease, background-color 220ms ease, box-shadow 220ms ease;
+}
+
 .distrato-table-shell {
-  background: linear-gradient(145deg, #f2ece4 0%, #faf7f2 52%, #efe5d8 100%);
+  background: #f7f4f0;
 }
 
 .distrato-table {
@@ -130,15 +161,15 @@
 }
 
 .distrato-table-row td {
-  background: linear-gradient(120deg, #ffffff 0%, #fcf8f3 70%, #f8f0e5 100%);
-  border-top: 1px solid #e5d8c5;
-  border-bottom: 1px solid #e5d8c5;
-  box-shadow: 0 5px 14px rgba(71, 45, 30, 0.055);
-  transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
+  background: #ffffff;
+  border-top: 1px solid #e6e0da;
+  border-bottom: 1px solid #e6e0da;
+  box-shadow: 0 3px 10px rgba(55, 35, 28, 0.04);
+  transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .distrato-table-row:nth-child(even) td {
-  background: linear-gradient(120deg, #fffdf9 0%, #f8f1e8 100%);
+  background: #fdfcfb;
 }
 
 .distrato-table-row td:first-child {
@@ -177,10 +208,30 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .brand-action:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 24px rgba(25, 2, 5, 0.28);
+  }
+
+  .brand-action:hover::after {
+    transform: translateX(120%) skewX(-15deg);
+  }
+
+  .brand-feature:hover {
+    transform: translateY(-4px);
+    border-color: rgba(229, 185, 93, 0.7);
+    background-color: rgba(54, 9, 14, 0.78);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.22);
+  }
+
   .distrato-table-row:hover td {
-    background: linear-gradient(115deg, #fffaf2 0%, #f2dfc4 54%, #ead1d5 135%);
-    border-color: #c59b4c;
-    box-shadow: 0 10px 24px rgba(88, 40, 34, 0.13);
+    background: #fff7f8;
+    border-color: #d8b6bb;
+    box-shadow: 0 8px 20px rgba(75, 21, 29, 0.09);
+  }
+
+  .distrato-table-row:hover td:first-child {
+    box-shadow: inset 4px 0 #8e192a, 0 8px 20px rgba(75, 21, 29, 0.09);
   }
 }
 

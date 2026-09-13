@@ -14,6 +14,7 @@ import {
 import { useDistratos } from '../context/SupabaseDistratoContext';
 import { useAuth } from '../context/AuthContext';
 import { formatarDataHora } from '../utils/calculations';
+import { BrandLogo } from './BrandLogo';
 
 interface HeaderProps {
   onOpenLogin: () => void;
@@ -59,7 +60,7 @@ export const Header: React.FC<HeaderProps> = ({
   const getPerfilLabel = (perfil: string) => {
     switch (perfil) {
       case 'admin':
-        return 'Administrador';
+        return 'Supervisor';
       case 'cadastro':
         return 'Cadastro e Gestão';
       case 'manutencao':
@@ -102,14 +103,9 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              {/* Monograma TP estilizado inspirado na imagem */}
-              <div className="hidden min-[430px]:flex h-10 w-10 shrink-0 rounded-xl bg-gradient-to-br from-[#3d0f16] via-[#24070a] to-[#160305] border border-[#c59b4c]/50 items-center justify-center shadow-inner text-white font-black tracking-tighter">
-                <span className="text-sm font-extrabold bg-gradient-to-r from-[#e7c784] via-[#c59b4c] to-[#f5ecd7] bg-clip-text text-transparent">
-                  TP
-                </span>
-              </div>
+              <BrandLogo className="hidden min-[430px]:block w-40 sm:w-52 shrink-0" />
               <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
+                <div className="flex items-center gap-2 min-w-0 min-[430px]:hidden">
                   <span className="block text-xs min-[390px]:text-sm sm:text-base font-extrabold tracking-wide sm:tracking-wider text-stone-100 uppercase truncate min-w-0">
                     Transpanorama
                   </span>
@@ -117,7 +113,7 @@ export const Header: React.FC<HeaderProps> = ({
                     FROTAS
                   </span>
                 </div>
-                <p className="text-[11px] text-stone-400 hidden lg:block truncate">
+                <p className="text-[10px] text-stone-400 hidden xl:block truncate">
                   Gestão Integrada de Distratos & Auditoria de Veículos
                 </p>
               </div>
@@ -256,7 +252,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <ChevronDown className="w-3 h-3 text-stone-400" />
                   </div>
                   <div className="text-[11px] font-medium text-[#dfc28d]">
-                    {getPerfilLabel(usuarioAtual.perfil)}
+                    {usuarioAtual.cargo || getPerfilLabel(usuarioAtual.perfil)}
                   </div>
                 </div>
               </button>
@@ -268,7 +264,7 @@ export const Header: React.FC<HeaderProps> = ({
                     <p className="text-[11px] text-stone-500">{usuarioAtual.email}</p>
                     <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f5ede1] text-[#7e1d2c] text-[10px] font-bold border border-[#e5d4be]">
                       <Shield className="w-3 h-3" />
-                      <span>{getPerfilLabel(usuarioAtual.perfil)}</span>
+                      <span>{usuarioAtual.cargo || getPerfilLabel(usuarioAtual.perfil)}</span>
                     </div>
                   </div>
 

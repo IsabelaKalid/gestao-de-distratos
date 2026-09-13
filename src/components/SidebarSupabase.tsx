@@ -10,12 +10,18 @@ import {
   FileText,
   HelpCircle,
   X,
+  Banknote,
+  Scale,
+  Files,
+  ClipboardCheck,
+  BarChart3,
 } from 'lucide-react';
 import { useDistratos } from '../context/SupabaseDistratoContext';
+import type { AbaSistema } from '../types';
 
 interface SidebarProps {
-  abaAtiva: 'dashboard' | 'lista' | 'tarefas' | 'admin';
-  onChangeAba: (aba: 'dashboard' | 'lista' | 'tarefas' | 'admin') => void;
+  abaAtiva: AbaSistema;
+  onChangeAba: (aba: AbaSistema) => void;
   onOpenNovoDistrato: () => void;
   isOpenMobile: boolean;
   onCloseMobile: () => void;
@@ -72,12 +78,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return false;
   }).length;
 
-  const itensNav = [
+  const perfil = usuarioAtual.perfil;
+  const itensNav: Array<{ id: AbaSistema; label: string; descricao: string; icon: React.ElementType; badge?: number; badgeColor?: string; permitido: boolean }> = [
     {
       id: 'dashboard' as const,
       label: 'Painel Geral',
       descricao: 'Visão executiva & KPIs',
       icon: LayoutDashboard,
+      permitido: true,
     },
     {
       id: 'lista' as const,
@@ -85,22 +93,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
       descricao: 'Base central de processos',
       icon: FileSpreadsheet,
       badge: distratos.length,
+      permitido: true,
     },
     {
       id: 'tarefas' as const,
       label: 'Minhas Tarefas',
-      descricao: `Ações do perfil (${usuarioAtual.perfil})`,
+      descricao: `Ações do perfil (${usuarioAtual.perfil === 'admin' ? 'supervisor' : usuarioAtual.perfil})`,
       icon: CheckSquare,
       badge: tarefasPendentes,
       badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      permitido: true,
+    },
+    {
+      id: 'financeiro' as const, label: 'Cobrança & Pagamentos', descricao: 'Boletos e recebimentos', icon: Banknote,
+      permitido: perfil === 'admin' || perfil === 'financeiro',
+    },
+    {
+      id: 'juridico' as const, label: 'Jurídico', descricao: 'Protestos & execução', icon: Scale,
+      permitido: perfil === 'admin' || perfil === 'juridico',
+    },
+    {
+      id: 'documentos' as const, label: 'Documentos', descricao: 'Arquivos dos processos', icon: Files, permitido: true,
+    },
+    {
+      id: 'auditoria' as const, label: 'Auditorias', descricao: 'Verificações de frota', icon: ClipboardCheck,
+      permitido: ['admin','manutencao','verificacoes'].includes(perfil),
+    },
+    {
+      id: 'relatorios' as const, label: 'Relatórios', descricao: 'Termos & impressão', icon: BarChart3,
+      permitido: perfil === 'admin',
     },
     {
       id: 'admin' as const,
-      label: 'Administração',
-      descricao: 'Permissões & Auditoria',
+      label: 'Supervisão',
+      descricao: 'Usuários & Permissões',
       icon: Settings,
+      permitido: perfil === 'admin',
     },
-  ].filter((item) => item.id !== 'admin' || usuarioAtual.perfil === 'admin');
+  ].filter((item) => item.permitido);
 
   return (
     <>

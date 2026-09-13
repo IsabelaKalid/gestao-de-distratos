@@ -7,6 +7,11 @@ import type { Usuario } from '../types';
 
 type UsuarioAdmin = Usuario & { aprovado?: boolean; ativo?: boolean };
 const PERFIS = ['pendente','admin','cadastro','manutencao','verificacoes','financeiro','juridico'];
+const ROTULOS_PERFIL: Record<string, string> = {
+  pendente: 'Pendente', admin: 'Supervisor', cadastro: 'Cadastro', manutencao: 'Manutenção',
+  verificacoes: 'Verificações', financeiro: 'Financeiro', juridico: 'Jurídico',
+};
+const departamentoDoPerfil = (perfil: string) => ROTULOS_PERFIL[perfil] || perfil;
 
 export const AdminView: React.FC = () => {
   const { usuarioAtual, resetarDados, distratos, erroDados } = useDistratos();
@@ -21,7 +26,7 @@ export const AdminView: React.FC = () => {
   useEffect(()=>{ carregarUsuarios(); },[]);
 
   const salvar = async (u: UsuarioAdmin) => {
-    const erro = await atualizarPerfil(u.id,{ perfil:u.perfil,departamento:u.departamento,cargo:u.cargo,aprovado:Boolean(u.aprovado),ativo:u.ativo !== false });
+    const erro = await atualizarPerfil(u.id,{ perfil:u.perfil,departamento:departamentoDoPerfil(String(u.perfil)),cargo:u.cargo,aprovado:Boolean(u.aprovado),ativo:u.ativo !== false });
     setMensagem(erro ? `Não foi possível salvar: ${erro}` : `Perfil de ${u.nome} atualizado.`);
     if (!erro) carregarUsuarios();
   };
@@ -34,15 +39,15 @@ export const AdminView: React.FC = () => {
   if (usuarioAtual.perfil !== 'admin') return null;
 
   return <div className="space-y-6 pb-12 max-w-6xl">
-    <div><p className="text-xs font-semibold text-[#865d1d]">Governança e acessos</p><h1 className="text-xl sm:text-2xl font-black mt-1">Administração do sistema</h1><p className="text-sm text-stone-500 mt-1">Aprove novos cadastros e determine o perfil de cada pessoa.</p></div>
+    <div><p className="text-xs font-semibold text-[#865d1d]">Governança e acessos</p><h1 className="text-xl sm:text-2xl font-black mt-1">Supervisão do sistema</h1><p className="text-sm text-stone-500 mt-1">Aprove novos cadastros e determine o perfil e o cargo de cada pessoa.</p></div>
     {mensagem && <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-900">{mensagem}</div>}
     {erroDados && <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">Erro de sincronização: {erroDados}</div>}
     <section className="card-gradient-hover bg-white rounded-2xl border border-stone-200 shadow-sm overflow-hidden">
       <div className="p-5 border-b flex items-center gap-2"><Users className="w-5 h-5 text-[#7e1d2c]"/><h2 className="font-bold">Usuários cadastrados</h2></div>
-      <div className="divide-y">{usuarios.map(u=><div key={u.id} className="p-4 sm:p-5 grid lg:grid-cols-[1.3fr_1fr_1fr_auto] gap-3 items-end">
+      <div className="divide-y">{usuarios.map(u=><div key={u.id} className="p-4 sm:p-5 grid lg:grid-cols-[1.35fr_0.9fr_1.2fr_auto] gap-3 items-end">
         <div className="min-w-0"><p className="font-bold text-sm break-words">{u.nome}</p><p className="text-xs text-stone-500 break-all">{u.email}</p></div>
-        <label className="text-xs font-semibold">Perfil<select value={String(u.perfil)} onChange={e=>alterar(u.id,'perfil',e.target.value as any)} className="mt-1 block w-full border rounded-lg p-2 bg-white">{PERFIS.map(p=><option key={p}>{p}</option>)}</select></label>
-        <label className="text-xs font-semibold">Departamento<input value={u.departamento} onChange={e=>alterar(u.id,'departamento',e.target.value)} className="mt-1 block w-full border rounded-lg p-2" placeholder="Ex.: Manutenção"/></label>
+        <label className="text-xs font-semibold">Perfil<select value={String(u.perfil)} onChange={e=>alterar(u.id,'perfil',e.target.value as any)} className="mt-1 block w-full border rounded-lg p-2 bg-white">{PERFIS.map(p=><option key={p} value={p}>{ROTULOS_PERFIL[p]}</option>)}</select></label>
+        <label className="text-xs font-semibold">Cargo<input value={u.cargo} onChange={e=>alterar(u.id,'cargo',e.target.value)} className="mt-1 block w-full border rounded-lg p-2" placeholder="Ex.: Chefe do Jurídico"/></label>
         <div className="flex flex-wrap items-center justify-between lg:justify-start gap-2"><label className="text-xs flex items-center gap-1.5"><input type="checkbox" checked={Boolean(u.aprovado)} onChange={e=>alterar(u.id,'aprovado',e.target.checked)}/>Aprovado</label><button onClick={()=>salvar(u)} className="px-4 py-2 rounded-lg bg-[#7e1d2c] text-white text-xs font-bold">Salvar</button></div>
       </div>)}{!usuarios.length && <p className="p-6 text-sm text-stone-500">Nenhum usuário encontrado.</p>}</div>
     </section>
@@ -50,6 +55,6 @@ export const AdminView: React.FC = () => {
       <div><div className="flex items-center gap-2"><Database className="w-5 h-5"/><h2 className="font-bold">Dados iniciais</h2></div><p className="text-sm text-stone-500 mt-1">Exibindo {distratos.length} distratos carregados do banco de dados.</p></div>
       <button onClick={importar} className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#7e1d2c] text-[#7e1d2c] font-bold text-sm"><RefreshCw className="w-4 h-4"/>Importar dados iniciais</button>
     </section>
-    <section className="grid md:grid-cols-2 gap-4"><div className="card-gradient-hover bg-white border rounded-2xl p-5"><Shield className="text-[#865d1d]"/><h3 className="font-bold mt-3">Contas individuais</h3><p className="text-sm text-stone-500 mt-1">Cada alteração usa o usuário autenticado, sem alternância de nomes.</p></div><div className="card-gradient-hover bg-white border rounded-2xl p-5"><CheckCircle2 className="text-emerald-600"/><h3 className="font-bold mt-3">Aprovação administrativa</h3><p className="text-sm text-stone-500 mt-1">Novas contas permanecem bloqueadas até receberem perfil e aprovação.</p></div></section>
+    <section className="grid md:grid-cols-2 gap-4"><div className="card-gradient-hover bg-white border rounded-2xl p-5"><Shield className="text-[#865d1d]"/><h3 className="font-bold mt-3">Contas individuais</h3><p className="text-sm text-stone-500 mt-1">Cada alteração usa o usuário autenticado, sem alternância de nomes.</p></div><div className="card-gradient-hover bg-white border rounded-2xl p-5"><CheckCircle2 className="text-emerald-600"/><h3 className="font-bold mt-3">Aprovação da supervisão</h3><p className="text-sm text-stone-500 mt-1">Novas contas permanecem bloqueadas até receberem perfil e aprovação.</p></div></section>
   </div>;
 };

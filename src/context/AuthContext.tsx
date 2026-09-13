@@ -103,7 +103,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const atualizarPerfil = async (id: string, dados: { perfil: string; departamento: string; cargo: string; aprovado: boolean; ativo: boolean }) => {
-    const { error } = await supabase.from('profiles').update(dados).eq('id', id);
+    const { error } = await supabase.rpc('atualizar_perfil_supervisor', {
+      p_id: id,
+      p_perfil: dados.perfil,
+      p_departamento: dados.departamento.trim(),
+      p_cargo: dados.cargo.trim(),
+      p_aprovado: dados.aprovado,
+      p_ativo: dados.ativo,
+    });
     return error?.message ?? null;
   };
 
