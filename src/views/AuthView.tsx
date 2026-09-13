@@ -152,27 +152,8 @@ export const AuthView: React.FC = () => {
     );
 
   return (
-    <main className="relative min-h-screen bg-[#f7f3ed] grid lg:grid-cols-[1fr_0.85fr]">
-      <section className="relative hidden lg:block overflow-hidden bg-[#240609]">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/assets/transpanorama-frota.png')" }}
-        />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#210407]/45 to-[#210407]/90" />
-        <div className="relative h-full p-12 flex flex-col justify-between text-white">
-          <BrandLogo className="w-72" />
-          <div>
-            <p className="text-[#e5b95d] font-bold">Gestão Integrada</p>
-            <h1 className="mt-2 text-4xl font-black">
-              Controle e rastreabilidade em cada etapa.
-            </h1>
-          </div>
-          <p className="text-xs text-stone-300">
-            Ambiente protegido e individual.
-          </p>
-        </div>
-      </section>
-      <section className="flex items-center justify-center p-4 sm:p-8">
+    <main className="relative min-h-screen bg-[#f7f3ed] flex items-center justify-center">
+      <section className="w-full flex items-center justify-center p-4 sm:p-8">
         <div className="w-full max-w-md bg-white border border-stone-200 shadow-xl rounded-3xl p-6 sm:p-9">
           <button
             type="button"
@@ -181,8 +162,7 @@ export const AuthView: React.FC = () => {
           >
             <ArrowLeft className="w-4 h-4" /> Voltar ao início
           </button>
-          <BrandLogo className="w-52" />
-          <h2 className="mt-5 text-3xl font-black text-stone-900">
+          <h2 className="text-3xl font-black text-stone-900">
             {modo === "entrar" ? "Entrar no sistema" : "Criar sua conta"}
           </h2>
           {modo === "cadastrar" && (
