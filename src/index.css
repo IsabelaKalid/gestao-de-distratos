@@ -116,11 +116,11 @@
 }
 
 .brand-logo {
-  aspect-ratio: 5.25 / 1;
+  aspect-ratio: 4.7 / 1;
   background-image: url('/assets/transpanorama-frota.png');
   background-repeat: no-repeat;
-  background-size: 147% auto;
-  background-position: 54% 22.5%;
+  background-size: 125% auto;
+  background-position: 50% 22.5%;
   border-radius: 8px;
   filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
 }
