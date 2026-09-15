@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 import {
   LayoutDashboard,
   FileSpreadsheet,
@@ -15,9 +15,9 @@ import {
   Files,
   ClipboardCheck,
   BarChart3,
-} from 'lucide-react';
-import { useDistratos } from '../context/SupabaseDistratoContext';
-import type { AbaSistema } from '../types';
+} from "lucide-react";
+import { useDistratos } from "../context/SupabaseDistratoContext";
+import type { AbaSistema } from "../types";
 
 interface SidebarProps {
   abaAtiva: AbaSistema;
@@ -38,97 +38,142 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Contagem de tarefas para o perfil logado
   const tarefasPendentes = distratos.filter((d) => {
-    if (d.statusGeral === 'Quitado' || d.statusGeral === 'Cancelado') return false;
+    if (d.statusGeral === "Quitado" || d.statusGeral === "Cancelado")
+      return false;
 
-    if (usuarioAtual.perfil === 'admin') {
+    if (usuarioAtual.perfil === "admin") {
       return true; // vê todas
     }
-    if (usuarioAtual.perfil === 'cadastro') {
-      return d.statusGeral === 'Aguardando Emissão' || d.statusGeral === 'Em Aberto';
-    }
-    if (usuarioAtual.perfil === 'manutencao') {
-      return d.verificacoes.some(
-        (v) => (v.tipo === 'manutencao' || v.tipo === 'pneus') &&
-        (v.status === 'Aguardando análise' || v.status === 'Em análise')
+    if (usuarioAtual.perfil === "cadastro") {
+      return (
+        d.statusGeral === "Aguardando Emissão" || d.statusGeral === "Em Aberto"
       );
     }
-    if (usuarioAtual.perfil === 'verificacoes') {
+    if (usuarioAtual.perfil === "manutencao") {
       return d.verificacoes.some(
         (v) =>
-          v.tipo !== 'manutencao' &&
-          v.tipo !== 'pneus' &&
-          (v.status === 'Aguardando análise' || v.status === 'Em análise')
+          (v.tipo === "manutencao" || v.tipo === "pneus") &&
+          (v.status === "Aguardando análise" || v.status === "Em análise"),
       );
     }
-    if (usuarioAtual.perfil === 'financeiro') {
-      return (
-        d.statusFinanceiro === 'Aguardando boleto' ||
-        d.statusFinanceiro === 'Vencido' ||
-        d.statusFinanceiro === 'A vencer' ||
-        d.statusFinanceiro === 'Parcialmente pago'
+    if (usuarioAtual.perfil === "verificacoes") {
+      return d.verificacoes.some(
+        (v) =>
+          v.tipo !== "manutencao" &&
+          v.tipo !== "pneus" &&
+          (v.status === "Aguardando análise" || v.status === "Em análise"),
       );
     }
-    if (usuarioAtual.perfil === 'juridico') {
+    if (usuarioAtual.perfil === "financeiro") {
       return (
-        d.statusGeral === 'Em Protesto' ||
-        d.statusGeral === 'Ajuizado' ||
-        d.statusFinanceiro === 'Vencido'
+        d.statusFinanceiro === "Aguardando boleto" ||
+        d.statusFinanceiro === "Vencido" ||
+        d.statusFinanceiro === "A vencer" ||
+        d.statusFinanceiro === "Parcialmente pago"
+      );
+    }
+    if (usuarioAtual.perfil === "juridico") {
+      return (
+        d.statusGeral === "Em Protesto" ||
+        d.statusGeral === "Ajuizado" ||
+        d.statusFinanceiro === "Vencido"
       );
     }
     return false;
   }).length;
 
   const perfil = usuarioAtual.perfil;
-  const itensNav: Array<{ id: AbaSistema; label: string; descricao: string; icon: React.ElementType; badge?: number; badgeColor?: string; permitido: boolean }> = [
+  const departamentos =
+    usuarioAtual.departamentos ||
+    (usuarioAtual.departamento ? [usuarioAtual.departamento] : []);
+  const temDepartamento = (...nomes: string[]) =>
+    perfil === "admin" || nomes.some((nome) => departamentos.includes(nome));
+  const itensNav: Array<{
+    id: AbaSistema;
+    label: string;
+    descricao: string;
+    icon: React.ElementType;
+    badge?: number;
+    badgeColor?: string;
+    permitido: boolean;
+  }> = [
     {
-      id: 'dashboard' as const,
-      label: 'Painel Geral',
-      descricao: 'Visão executiva & KPIs',
+      id: "dashboard" as const,
+      label: "Painel Geral",
+      descricao: "Visão executiva & KPIs",
       icon: LayoutDashboard,
       permitido: true,
     },
     {
-      id: 'lista' as const,
-      label: 'Distratos de Frotas',
-      descricao: 'Base central de processos',
+      id: "lista" as const,
+      label: "Distratos de Frotas",
+      descricao: "Base central de processos",
       icon: FileSpreadsheet,
       badge: distratos.length,
       permitido: true,
     },
     {
-      id: 'tarefas' as const,
-      label: 'Minhas Tarefas',
-      descricao: `Ações do perfil (${usuarioAtual.perfil === 'admin' ? 'supervisor' : usuarioAtual.perfil})`,
+      id: "tarefas" as const,
+      label: "Minhas Tarefas",
+      descricao: `Ações do perfil (${usuarioAtual.perfil === "admin" ? "supervisor" : usuarioAtual.perfil})`,
       icon: CheckSquare,
       badge: tarefasPendentes,
-      badgeColor: 'bg-amber-100 text-amber-800 border-amber-300',
+      badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
       permitido: true,
     },
     {
-      id: 'financeiro' as const, label: 'Cobrança & Pagamentos', descricao: 'Boletos e recebimentos', icon: Banknote,
-      permitido: perfil === 'admin' || perfil === 'financeiro',
+      id: "financeiro" as const,
+      label: "Cobrança & Pagamentos",
+      descricao: "Boletos e recebimentos",
+      icon: Banknote,
+      permitido: perfil === "financeiro" || temDepartamento("Financeiro"),
     },
     {
-      id: 'juridico' as const, label: 'Jurídico', descricao: 'Protestos & execução', icon: Scale,
-      permitido: perfil === 'admin' || perfil === 'juridico',
+      id: "juridico" as const,
+      label: "Jurídico",
+      descricao: "Protestos & execução",
+      icon: Scale,
+      permitido: perfil === "juridico" || temDepartamento("Jurídico"),
     },
     {
-      id: 'documentos' as const, label: 'Documentos', descricao: 'Arquivos dos processos', icon: Files, permitido: true,
+      id: "documentos" as const,
+      label: "Documentos",
+      descricao: "Arquivos dos processos",
+      icon: Files,
+      permitido: true,
     },
     {
-      id: 'auditoria' as const, label: 'Auditorias', descricao: 'Verificações de frota', icon: ClipboardCheck,
-      permitido: ['admin','manutencao','verificacoes'].includes(perfil),
+      id: "auditoria" as const,
+      label: "Auditorias",
+      descricao: "Verificações de frota",
+      icon: ClipboardCheck,
+      permitido:
+        ["admin", "manutencao", "verificacoes"].includes(perfil) ||
+        temDepartamento(
+          "Oficina",
+          "Abastecimento",
+          "Multa",
+          "Customer Service",
+          "Tecnologia Integrada",
+          "Estacionamento",
+          "Almoxarifado",
+          "Auditoria",
+          "Auditoria de Suprimentos",
+        ),
     },
     {
-      id: 'relatorios' as const, label: 'Relatórios', descricao: 'Termos & impressão', icon: BarChart3,
-      permitido: perfil === 'admin',
+      id: "relatorios" as const,
+      label: "Relatórios",
+      descricao: "Termos & impressão",
+      icon: BarChart3,
+      permitido: perfil === "admin",
     },
     {
-      id: 'admin' as const,
-      label: 'Supervisão',
-      descricao: 'Usuários & Permissões',
+      id: "admin" as const,
+      label: "Supervisão",
+      descricao: "Usuários & Permissões",
       icon: Settings,
-      permitido: perfil === 'admin',
+      permitido: perfil === "admin",
     },
   ].filter((item) => item.permitido);
 
@@ -144,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <aside
         className={`fixed top-16 bottom-0 left-0 z-40 w-64 bg-[#fcfbf9] border-r border-stone-200 transform transition-transform duration-200 ease-in-out lg:sticky lg:top-16 lg:self-start lg:h-[calc(100vh-4rem)] lg:translate-x-0 lg:z-30 lg:shrink-0 flex flex-col justify-between overflow-y-auto ${
-          isOpenMobile ? 'translate-x-0' : '-translate-x-full'
+          isOpenMobile ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         <div className="p-4 space-y-5">
@@ -152,7 +197,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="flex items-center justify-between lg:hidden pb-2 border-b border-stone-200">
             <div className="flex items-center gap-2">
               <Truck className="w-5 h-5 text-[#7e1d2c]" />
-              <span className="font-bold text-stone-800 text-sm">Navegação</span>
+              <span className="font-bold text-stone-800 text-sm">
+                Navegação
+              </span>
             </div>
             <button
               onClick={onCloseMobile}
@@ -163,18 +210,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
 
           {/* Botão Novo Distrato Principal */}
-          {(usuarioAtual.perfil === 'admin' || usuarioAtual.perfil === 'cadastro') && <button
-            id="btn-novo-distrato-sidebar"
-            type="button"
-            onClick={() => {
-              onOpenNovoDistrato();
-              if (isOpenMobile) onCloseMobile();
-            }}
-            className="sidebar-primary-action w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#7e1d2c] active:bg-[#54101a] text-stone-100 font-semibold text-xs border border-[#c59b4c]/30 shadow-xs transition cursor-pointer"
-          >
-            <PlusCircle className="w-4 h-4 text-[#dfc28d]" />
-            <span>Cadastrar Novo Distrato</span>
-          </button>}
+          {(usuarioAtual.perfil === "admin" ||
+            usuarioAtual.perfil === "cadastro" ||
+            temDepartamento("Logística")) && (
+            <button
+              id="btn-novo-distrato-sidebar"
+              type="button"
+              onClick={() => {
+                onOpenNovoDistrato();
+                if (isOpenMobile) onCloseMobile();
+              }}
+              className="sidebar-primary-action w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#7e1d2c] active:bg-[#54101a] text-stone-100 font-semibold text-xs border border-[#c59b4c]/30 shadow-xs transition cursor-pointer"
+            >
+              <PlusCircle className="w-4 h-4 text-[#dfc28d]" />
+              <span>Cadastrar Novo Distrato</span>
+            </button>
+          )}
 
           {/* Menu de Navegação */}
           <nav className="space-y-1">
@@ -197,17 +248,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   }}
                   className={`sidebar-nav-item w-full flex items-center justify-between p-2.5 rounded-xl text-left transition cursor-pointer ${
                     ativo
-                      ? 'sidebar-nav-item-active bg-[#29080d] text-stone-100 shadow-sm font-semibold border-l-3 border-[#c59b4c]'
-                      : 'text-stone-600'
+                      ? "sidebar-nav-item-active bg-[#29080d] text-stone-100 shadow-sm font-semibold border-l-3 border-[#c59b4c]"
+                      : "text-stone-600"
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <Icon className={`w-4 h-4 shrink-0 ${ativo ? 'text-[#dfc28d]' : 'text-stone-400'}`} />
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${ativo ? "text-[#dfc28d]" : "text-stone-400"}`}
+                    />
                     <div className="min-w-0">
-                      <div className="text-xs leading-tight truncate">{item.label}</div>
+                      <div className="text-xs leading-tight truncate">
+                        {item.label}
+                      </div>
                       <div
                         className={`sidebar-nav-description text-[10px] truncate ${
-                          ativo ? 'text-stone-300' : 'text-stone-400'
+                          ativo ? "text-stone-300" : "text-stone-400"
                         }`}
                       >
                         {item.descricao}
@@ -219,8 +274,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
                         ativo
-                          ? 'bg-[#7e1d2c] text-stone-100 border-[#9e273a]'
-                          : item.badgeColor || 'bg-stone-200/80 text-stone-700 border-stone-300'
+                          ? "bg-[#7e1d2c] text-stone-100 border-[#9e273a]"
+                          : item.badgeColor ||
+                            "bg-stone-200/80 text-stone-700 border-stone-300"
                       }`}
                     >
                       {item.badge}

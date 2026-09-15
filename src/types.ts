@@ -1,58 +1,65 @@
 export type PerfilAcesso =
-  | 'admin'
-  | 'cadastro'
-  | 'manutencao'
-  | 'verificacoes'
-  | 'financeiro'
-  | 'juridico';
+  | "admin"
+  | "cadastro"
+  | "manutencao"
+  | "verificacoes"
+  | "financeiro"
+  | "juridico";
 
 export type AbaSistema =
-  | 'dashboard' | 'lista' | 'tarefas' | 'financeiro' | 'juridico'
-  | 'documentos' | 'auditoria' | 'relatorios' | 'admin';
+  | "dashboard"
+  | "lista"
+  | "tarefas"
+  | "financeiro"
+  | "juridico"
+  | "documentos"
+  | "auditoria"
+  | "relatorios"
+  | "admin";
 
 export type StatusDistrato =
-  | 'Em Aberto'
-  | 'Em Auditoria'
-  | 'Aguardando Emissão'
-  | 'Distrato Emitido'
-  | 'Em Cobrança'
-  | 'Quitado'
-  | 'Em Protesto'
-  | 'Ajuizado'
-  | 'Cancelado';
+  | "Em Aberto"
+  | "Em Auditoria"
+  | "Aguardando Emissão"
+  | "Distrato Emitido"
+  | "Em Cobrança"
+  | "Quitado"
+  | "Em Protesto"
+  | "Ajuizado"
+  | "Cancelado";
 
 export type StatusVerificacao =
-  | 'Aguardando análise'
-  | 'Em análise'
-  | 'Sem pendências'
-  | 'Pendência encontrada'
-  | 'Concluída';
+  | "Aguardando análise"
+  | "Em análise"
+  | "Sem pendências"
+  | "Pendência encontrada"
+  | "Concluída";
 
 export type StatusFinanceiro =
-  | 'Aguardando boleto'
-  | 'Boleto emitido'
-  | 'A vencer'
-  | 'Vencido'
-  | 'Parcialmente pago'
-  | 'Quitado'
-  | 'Em negociação'
-  | 'Encaminhado para protesto'
-  | 'Em processo judicial';
+  | "Aguardando boleto"
+  | "Boleto emitido"
+  | "A vencer"
+  | "Vencido"
+  | "Parcialmente pago"
+  | "Quitado"
+  | "Em negociação"
+  | "Encaminhado para protesto"
+  | "Em processo judicial";
 
-export type TipoDistrato = 'Cavalo' | 'Carreta' | 'Cavalo e Carreta';
+export type TipoDistrato = "Cavalo" | "Carreta" | "Cavalo e Carreta";
 
 export type TipoVerificacao =
-  | 'manutencao'
-  | 'sinistro'
-  | 'perda_carga'
-  | 'multas'
-  | 'abastecimento'
-  | 'estadia'
-  | 'camera_rastreador'
-  | 'estacionamento'
-  | 'pneus'
-  | 'antt'
-  | 'suprimentos';
+  | "manutencao"
+  | "sinistro"
+  | "perda_carga"
+  | "multas"
+  | "abastecimento"
+  | "estadia"
+  | "camera_rastreador"
+  | "estacionamento"
+  | "pneus"
+  | "antt"
+  | "suprimentos";
 
 export interface Usuario {
   id: string;
@@ -60,6 +67,7 @@ export interface Usuario {
   email: string;
   perfil: PerfilAcesso;
   departamento: string;
+  departamentos?: string[];
   cargo: string;
   avatar?: string;
 }
@@ -95,6 +103,8 @@ export interface Anexo {
   usuarioId: string;
   usuarioNome: string;
   categoria?: string;
+  descricao?: string;
+  origem?: "Documentos gerais" | "Cobrança e pagamentos" | "Jurídico";
 }
 
 export interface Verificacao {
@@ -111,6 +121,7 @@ export interface Verificacao {
   anexos: Anexo[];
   // Campos específicos
   sinistroDescricao?: string;
+  manutencaoTipo?: "Mecânica" | "Elétrica" | "Funilaria" | "Pneus" | "Outros";
   perdaCargaDescricao?: string;
   multasAutos?: string;
   multasDataConferencia?: string;
@@ -121,10 +132,12 @@ export interface Verificacao {
   rastreadorValor?: number;
   cameraRastreadorDataConferencia?: string;
   estacionamentoDataConferencia?: string;
+  estacionamentoTag?: string;
   pneusObservacao?: string;
-  anttStatus?: 'Pendente' | 'Protocolado' | 'Desvinculado';
+  pneusQuantidade?: number;
+  anttStatus?: "Em observação" | "Finalizado";
   anttData?: string;
-  suprimentosResultado?: 'Conforme' | 'Inconforme' | 'Pendente';
+  suprimentosResultado?: "Conforme" | "Inconforme" | "Pendente";
   suprimentosData?: string;
 }
 
@@ -133,7 +146,17 @@ export interface Pagamento {
   distratoId: string;
   data: string;
   valor: number;
-  formaPagamento: 'Boleto Bancário' | 'PIX' | 'Transferência TED' | 'Compensação' | 'Outro';
+  categoria?:
+    | "Aluguel"
+    | "Abastecimento"
+    | "Multa"
+    | "Manutenção"
+    | "Estacionamento"
+    | "Câmera e Rastreador"
+    | "Pneus"
+    | "Outros";
+  formaPagamento:
+    "Boleto Bancário" | "PIX" | "Transferência TED" | "Compensação" | "Outro";
   comprovanteNome?: string;
   comprovanteUrl?: string;
   usuarioId: string;
@@ -153,9 +176,12 @@ export interface Boleto {
   dataEmissao: string;
   dataVencimento: string;
   valor: number;
-  status: 'A vencer' | 'Vencido' | 'Pago' | 'Protestado' | 'Cancelado';
+  status: "A vencer" | "Vencido" | "Pago" | "Protestado" | "Cancelado";
   codigoBarras: string;
   linkPdf?: string;
+  arquivoNome?: string;
+  arquivoUrl?: string;
+  linhaDigitavel?: string;
 }
 
 export interface HistoricoAlteracao {
@@ -177,7 +203,7 @@ export interface Distrato {
   agregadoNome: string;
   agregadoCodigo: string;
   dataSolicitacao: string;
-  statusTermoAgregacao: 'Ativo' | 'Suspenso' | 'Em Encerramento' | 'Rescindido';
+  statusTermoAgregacao: "Ativo" | "Suspenso" | "Em Encerramento" | "Rescindido";
   placaCavalo: string;
   placaCarreta: string;
   debitoAluguel: number;
@@ -234,21 +260,21 @@ export interface Notificacao {
   id: string;
   distratoId?: string;
   tipo:
-    | 'atribuicao'
-    | 'prazo'
-    | 'atraso'
-    | 'emissao'
-    | 'vencimento'
-    | 'vencido'
-    | 'pagamento'
-    | 'quitacao'
-    | 'protesto'
-    | 'ajuizamento';
+    | "atribuicao"
+    | "prazo"
+    | "atraso"
+    | "emissao"
+    | "vencimento"
+    | "vencido"
+    | "pagamento"
+    | "quitacao"
+    | "protesto"
+    | "ajuizamento";
   titulo: string;
   mensagem: string;
   dataHora: string;
   lida: boolean;
-  perfilDestino?: PerfilAcesso | 'todos';
+  perfilDestino?: PerfilAcesso | "todos";
   linkDistratoId?: string;
 }
 

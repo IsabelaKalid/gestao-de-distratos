@@ -150,7 +150,7 @@ export function atualizarStatusAutomaticos(distrato: Distrato): {
   }
 
   // Regra de Quitação
-  if (saldo === 0 && (pago > 0 || divida === 0)) {
+  if (todasAuditoriasOk && saldo === 0 && (pago > 0 || divida === 0)) {
     statusFinanceiro = 'Quitado';
     statusGeral = 'Quitado';
     return { statusGeral, statusFinanceiro };
@@ -177,7 +177,7 @@ export function atualizarStatusAutomaticos(distrato: Distrato): {
   } else {
     // Sem boleto ainda
     if (!todasAuditoriasOk) {
-      statusGeral = 'Em Auditoria';
+      statusGeral = 'Em Aberto';
       statusFinanceiro = 'Aguardando boleto';
     } else {
       if (distrato.dataEmissaoDistrato) {

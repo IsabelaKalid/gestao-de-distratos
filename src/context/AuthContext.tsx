@@ -14,7 +14,7 @@ type AuthContextType = {
   cadastrar: (nome: string, email: string, senha: string) => Promise<string | null>;
   sair: () => Promise<void>;
   recuperarSenha: (email: string) => Promise<string | null>;
-  atualizarPerfil: (id: string, dados: { perfil: string; departamento: string; cargo: string; aprovado: boolean; ativo: boolean }) => Promise<string | null>;
+  atualizarPerfil: (id: string, dados: { perfil: string; departamento: string; departamentos: string[]; cargo: string; aprovado: boolean; ativo: boolean }) => Promise<string | null>;
   recarregarPerfil: () => Promise<void>;
 };
 
@@ -26,6 +26,7 @@ const mapPerfil = (row: any): UsuarioAutenticado => ({
   email: row.email,
   perfil: row.perfil as PerfilAcesso,
   departamento: row.departamento || '',
+  departamentos: Array.isArray(row.departamentos) && row.departamentos.length ? row.departamentos : (row.departamento ? [row.departamento] : []),
   cargo: row.cargo || '',
   avatar: row.avatar_url || undefined,
   aprovado: row.aprovado,
@@ -38,6 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [carregando, setCarregando] = useState(true);
   const [erroPerfil, setErroPerfil] = useState<string | null>(null);
   const requisicaoAtual = useRef(0);
+  const usuarioCarregadoId = useRef<string | null>(null);
+  const perfilCarregado = useRef<UsuarioAutenticado | null>(null);
 
   const carregarSessaoEPerfil = async (proximaSessao: Session | null) => {
     const requisicao = ++requisicaoAtual.current;
@@ -49,7 +52,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (proximaSessao?.user) {
         const { data, error } = await supabase.from('profiles').select('*').eq('id', proximaSessao.user.id).single();
         if (error) throw error;
-        if (requisicao === requisicaoAtual.current) setPerfil(mapPerfil(data));
+        if (requisicao === requisicaoAtual.current) {
+          const perfilMapeado = mapPerfil(data);
+          usuarioCarregadoId.current = proximaSessao.user.id;
+          perfilCarregado.current = perfilMapeado;
+          setPerfil(perfilMapeado);
+        }
       }
     } catch {
       if (requisicao === requisicaoAtual.current) setErroPerfil('Não foi possível consultar seu perfil. Verifique a conexão e tente novamente.');
@@ -68,8 +76,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }).catch(() => {
       if (ativo) { setErroPerfil('Não foi possível consultar sua sessão. Tente recarregar a página.'); setCarregando(false); }
     });
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       eventoAuthRecebido = true;
+      // Ao voltar para a aba, o Supabase pode apenas renovar o token. Nesse caso,
+      // preservamos o perfil e a tela atual para não remontar toda a aplicação.
+      if (
+        event === 'TOKEN_REFRESHED' ||
+        (event === 'SIGNED_IN' &&
+          nextSession?.user.id === usuarioCarregadoId.current &&
+          perfilCarregado.current !== null)
+      ) {
+        setSession(nextSession);
+        return;
+      }
+      if (event === 'SIGNED_OUT') {
+        requisicaoAtual.current++;
+        setSession(null);
+        setPerfil(null);
+        usuarioCarregadoId.current = null;
+        perfilCarregado.current = null;
+        setErroPerfil(null);
+        setCarregando(false);
+        return;
+      }
       // O perfil é buscado fora do callback para não bloquear o cliente de autenticação.
       setCarregando(true);
       setTimeout(async () => {
@@ -102,11 +131,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return error?.message ?? null;
   };
 
-  const atualizarPerfil = async (id: string, dados: { perfil: string; departamento: string; cargo: string; aprovado: boolean; ativo: boolean }) => {
+  const atualizarPerfil = async (id: string, dados: { perfil: string; departamento: string; departamentos: string[]; cargo: string; aprovado: boolean; ativo: boolean }) => {
     const { error } = await supabase.rpc('atualizar_perfil_supervisor', {
       p_id: id,
       p_perfil: dados.perfil,
       p_departamento: dados.departamento.trim(),
+      p_departamentos: dados.departamentos,
       p_cargo: dados.cargo.trim(),
       p_aprovado: dados.aprovado,
       p_ativo: dados.ativo,

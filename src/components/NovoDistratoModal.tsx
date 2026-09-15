@@ -225,10 +225,7 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
                     onChange={handleChange}
                     className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none bg-white"
                   >
-                    <option value="Em Encerramento">Em Encerramento (Padrão)</option>
-                    <option value="Suspenso">Suspenso Temporariamente</option>
-                    <option value="Ativo">Ativo (Solicitando Distrato)</option>
-                    <option value="Rescindido">Rescindido</option>
+                    <option value="Em Encerramento">Em Encerramento</option>
                   </select>
                 </div>
               </div>
@@ -260,7 +257,7 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
                 {form.tipoDistrato !== 'Carreta' && (
                   <div>
                     <label className="block text-xs font-bold text-stone-700 mb-1">
@@ -311,23 +308,6 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Segmento de Carga
-                  </label>
-                  <select
-                    name="segmento"
-                    value={form.segmento}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none bg-white"
-                  >
-                    <option value="Carga Geral">Carga Geral</option>
-                    <option value="Grãos">Grãos / Agronegócio</option>
-                    <option value="Refrigerado">Refrigerado / Frigorífico</option>
-                    <option value="Químico">Químico / Perigosos</option>
-                    <option value="E-commerce">E-commerce / Express</option>
-                  </select>
-                </div>
               </div>
             </div>
           )}
