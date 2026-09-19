@@ -105,7 +105,7 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
           </div>
 
           {/* Dados do Agregado e Veículo */}
-          <div className="grid grid-cols-2 gap-4 text-xs border border-slate-200 p-4 rounded-lg bg-slate-50/50">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs border border-slate-200 p-4 rounded-lg bg-slate-50/50">
             <div>
               <p className="text-slate-500 font-medium">Agregado / Razão Social:</p>
               <p className="font-bold text-slate-900 text-sm">{distrato.agregadoNome}</p>
@@ -132,7 +132,8 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
               1. Discriminativo das Verificações e Auditorias Realizadas
             </h3>
-            <table className="w-full text-left text-xs border border-slate-300 divide-y divide-slate-200">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-left text-xs border border-slate-300 divide-y divide-slate-200">
               <thead className="bg-slate-100 font-bold text-slate-700">
                 <tr>
                   <th className="py-2 px-3">Item Auditado</th>
@@ -179,6 +180,7 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Quadro de Fechamento Financeiro */}
@@ -186,7 +188,7 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">
               2. Balanço Financeiro Final do Encerramento
             </h3>
-            <div className="grid grid-cols-3 gap-4 text-center divide-x divide-slate-200 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center sm:divide-x divide-slate-200 pt-2">
               <div>
                 <p className="text-[11px] text-slate-500 uppercase font-semibold">Total da Dívida Levantada</p>
                 <p className="text-base font-extrabold text-rose-700 font-mono mt-0.5">
@@ -214,9 +216,9 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
           </div>
 
           {/* Campo de Assinaturas */}
-          <div className="report-signatures pt-12 grid grid-cols-2 gap-12 text-center text-xs">
+          <div className="report-signatures pt-12 grid grid-cols-1 sm:grid-cols-2 gap-12 text-center text-xs">
             <div className="border-t border-slate-400 pt-2">
-              <p className="font-bold text-slate-900">TRANSLOGÍSTICA S.A.</p>
+              <p className="font-bold text-slate-900">TRANSPANORAMA TRANSPORTES S.A.</p>
               <p className="text-slate-500">Representante Legal / Gerência de Frotas</p>
             </div>
             <div className="border-t border-slate-400 pt-2">

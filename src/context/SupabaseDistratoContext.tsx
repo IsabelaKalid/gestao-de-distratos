@@ -15,11 +15,7 @@ import {
   HistoricoAlteracao,
   Anexo,
 } from "../types";
-import {
-  DISTRATOS_INICIAIS,
-  NOTIFICACOES_INICIAIS,
-  criarVerificacoesPadrao,
-} from "../data/mockData";
+import { criarVerificacoesPadrao } from "../data/mockData";
 import {
   atualizarStatusAutomaticos,
   calcularDividaTotal,
@@ -56,12 +52,15 @@ interface DistratoContextType {
         | "placaCarreta"
         | "tipoDistrato"
         | "gridOperacao"
+        | "segmento"
+        | "debitoAluguel"
         | "statusTermoAgregacao"
         | "responsavelAtualId"
         | "responsavelAtualNome"
       >
     >,
   ) => void;
+  excluirDistrato: (distratoId: string) => Promise<void>;
   atualizarVerificacao: (
     distratoId: string,
     verificacaoId: string,
@@ -74,6 +73,10 @@ interface DistratoContextType {
       valor: number;
       formaPagamento: Pagamento["formaPagamento"];
       categoria?: Pagamento["categoria"];
+      dividaId?: string;
+      dividaDescricao?: string;
+      verificacaoId?: string;
+      lancamentoId?: string;
       comprovanteNome?: string;
       comprovanteUrl?: string;
       observacao?: string;
@@ -141,7 +144,6 @@ interface DistratoContextType {
     para: string,
     justificativa?: string,
   ) => void;
-  resetarDados: () => void;
   carregandoDados: boolean;
   erroDados: string | null;
   estadoSalvamento: "salvo" | "salvando" | "erro";
@@ -486,6 +488,8 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
         | "placaCarreta"
         | "tipoDistrato"
         | "gridOperacao"
+        | "segmento"
+        | "debitoAluguel"
         | "statusTermoAgregacao"
         | "responsavelAtualId"
         | "responsavelAtualNome"
@@ -502,6 +506,10 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
           placaCavalo: dados.placaCavalo?.toUpperCase().trim() ?? d.placaCavalo,
           placaCarreta:
             dados.placaCarreta?.toUpperCase().trim() ?? d.placaCarreta,
+          debitoAluguel:
+            dados.debitoAluguel !== undefined
+              ? Math.max(0, Number(dados.debitoAluguel) || 0)
+              : d.debitoAluguel,
           dataUltimaAtualizacao: agoraIso,
         };
         atualizado.historico = [
@@ -513,14 +521,62 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
             usuarioNome: usuarioAtual.nome,
             perfil: usuarioAtual.perfil,
             campoAlterado: "Dados cadastrais do distrato",
-            valorAnterior: `${d.agregadoNome} | ${d.placaCavalo} / ${d.placaCarreta} | ${d.gridOperacao}`,
-            valorNovo: `${atualizado.agregadoNome} | ${atualizado.placaCavalo} / ${atualizado.placaCarreta} | ${atualizado.gridOperacao}`,
+            valorAnterior: `${d.agregadoNome} | ${d.placaCavalo} / ${d.placaCarreta} | ${d.gridOperacao} / ${d.segmento} | Aluguel: R$ ${d.debitoAluguel.toFixed(2)}`,
+            valorNovo: `${atualizado.agregadoNome} | ${atualizado.placaCavalo} / ${atualizado.placaCarreta} | ${atualizado.gridOperacao} / ${atualizado.segmento} | Aluguel: R$ ${atualizado.debitoAluguel.toFixed(2)}`,
           },
           ...d.historico,
         ];
         return atualizado;
       }),
     );
+  };
+
+  const excluirDistrato = async (distratoId: string) => {
+    const distrato = atuais.current.find((item) => item.id === distratoId);
+    if (!distrato) throw new Error("Distrato não encontrado.");
+
+    const { error } = await supabase.from("distratos").delete().eq("id", distratoId);
+    if (error) throw error;
+
+    // Limpeza auxiliar; instalações antigas podem ainda não ter a política de
+    // exclusão de notificações, por isso uma falha aqui não desfaz o distrato.
+    await supabase
+      .from("notificacoes")
+      .delete()
+      .or(`dados->>distratoId.eq.${distratoId},dados->>linkDistratoId.eq.${distratoId}`);
+
+    const caminhos = Array.from(
+      new Set(
+        [
+          ...distrato.documentos.map((doc) => doc.url),
+          ...distrato.boletos.map((boleto) => boleto.arquivoUrl),
+          ...distrato.pagamentos.map((pagamento) => pagamento.comprovanteUrl),
+          ...distrato.verificacoes.flatMap((verificacao) => [
+            ...verificacao.anexos.map((anexo) => anexo.url),
+            ...(verificacao.lancamentos || []).flatMap((lancamento) =>
+              lancamento.anexos.map((anexo) => anexo.url),
+            ),
+          ]),
+        ].filter((caminho): caminho is string => Boolean(caminho)),
+      ),
+    );
+    if (caminhos.length) {
+      // A exclusão do registro é a operação principal. Arquivos órfãos não
+      // impedem a conclusão caso o Storage esteja temporariamente indisponível.
+      await supabase.storage.from("documentos-distratos").remove(caminhos);
+    }
+
+    salvos.current.delete(distratoId);
+    atuais.current = atuais.current.filter((item) => item.id !== distratoId);
+    setDistratos((prev) => prev.filter((item) => item.id !== distratoId));
+    setNotificacoes((prev) =>
+      prev.filter(
+        (notificacao) =>
+          notificacao.distratoId !== distratoId &&
+          notificacao.linkDistratoId !== distratoId,
+      ),
+    );
+    setDistratoSelecionadoId(null);
   };
 
   const adicionarPagamento = (
@@ -530,6 +586,10 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       valor: number;
       formaPagamento: Pagamento["formaPagamento"];
       categoria?: Pagamento["categoria"];
+      dividaId?: string;
+      dividaDescricao?: string;
+      verificacaoId?: string;
+      lancamentoId?: string;
       comprovanteNome?: string;
       comprovanteUrl?: string;
       observacao?: string;
@@ -542,6 +602,10 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       data: pagamento.data,
       valor: Number(pagamento.valor),
       categoria: pagamento.categoria || "Outros",
+      dividaId: pagamento.dividaId,
+      dividaDescricao: pagamento.dividaDescricao,
+      verificacaoId: pagamento.verificacaoId,
+      lancamentoId: pagamento.lancamentoId,
       formaPagamento: pagamento.formaPagamento,
       comprovanteNome: pagamento.comprovanteNome,
       comprovanteUrl: pagamento.comprovanteUrl,
@@ -577,7 +641,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
             perfil: usuarioAtual.perfil,
             campoAlterado: "Novo Pagamento Registrado",
             valorAnterior: "Saldo pendente",
-            valorNovo: `Recebido R$ ${novoPag.valor.toFixed(2)} via ${novoPag.formaPagamento} • Categoria: ${novoPag.categoria}`,
+            valorNovo: `Recebido R$ ${novoPag.valor.toFixed(2)} via ${novoPag.formaPagamento} • Categoria: ${novoPag.categoria}${novoPag.dividaDescricao ? ` • Dívida: ${novoPag.dividaDescricao}` : ""}`,
             justificativa: pagamento.observacao,
           },
           ...d.historico,
@@ -979,6 +1043,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       tamanhoKb: number;
       categoria?: string;
       descricao?: string;
+      origem?: Anexo["origem"];
       url?: string;
     },
   ) => {
@@ -993,6 +1058,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       usuarioNome: usuarioAtual.nome,
       categoria: doc.categoria || "Geral",
       descricao: doc.descricao?.trim() || "",
+      origem: doc.origem || "Documentos gerais",
       url: doc.url,
     };
 
@@ -1099,12 +1165,6 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
     setNotificacoes((prev) => prev.map((n) => ({ ...n, lida: true })));
   };
 
-  const resetarDados = () => {
-    setDistratos(DISTRATOS_INICIAIS);
-    setNotificacoes(NOTIFICACOES_INICIAIS);
-    setDistratoSelecionadoId(null);
-  };
-
   return (
     <DistratoContext.Provider
       value={{
@@ -1117,6 +1177,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
         selecionarDistrato,
         criarDistrato,
         atualizarDadosCadastrais,
+        excluirDistrato,
         atualizarVerificacao,
         adicionarPagamento,
         cancelarPagamento,
@@ -1131,7 +1192,6 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
         marcarTodasNotificacoesLidas,
         reabrirDistrato,
         adicionarHistoricoManual,
-        resetarDados,
         carregandoDados,
         erroDados,
         estadoSalvamento,

@@ -104,7 +104,23 @@ export interface Anexo {
   usuarioNome: string;
   categoria?: string;
   descricao?: string;
-  origem?: "Documentos gerais" | "Cobrança e pagamentos" | "Jurídico";
+  origem?:
+    | "Documentos gerais"
+    | "Cobrança e pagamentos"
+    | "Jurídico"
+    | "Auditorias";
+}
+
+export interface LancamentoVerificacao {
+  id: string;
+  data: string;
+  valor: number;
+  numeroDocumento?: string;
+  observacoes?: string;
+  anexos: Anexo[];
+  usuarioId: string;
+  usuarioNome: string;
+  criadoEm: string;
 }
 
 export interface Verificacao {
@@ -119,6 +135,9 @@ export interface Verificacao {
   valor: number; // valor monetário numérico rigoroso
   observacoes: string;
   anexos: Anexo[];
+  // Lista incremental. Os campos acima continuam existindo para manter
+  // compatibilidade com os distratos já cadastrados.
+  lancamentos?: LancamentoVerificacao[];
   // Campos específicos
   sinistroDescricao?: string;
   manutencaoTipo?: "Mecânica" | "Elétrica" | "Funilaria" | "Pneus" | "Outros";
@@ -155,6 +174,11 @@ export interface Pagamento {
     | "Câmera e Rastreador"
     | "Pneus"
     | "Outros";
+  /** Referência da dívida específica quitada. Ausente em pagamentos antigos. */
+  dividaId?: string;
+  dividaDescricao?: string;
+  verificacaoId?: string;
+  lancamentoId?: string;
   formaPagamento:
     "Boleto Bancário" | "PIX" | "Transferência TED" | "Compensação" | "Outro";
   comprovanteNome?: string;

@@ -58,7 +58,7 @@ alter table public.notificacoes enable row level security;
 grant usage on schema public to anon, authenticated;
 grant select, update on table public.profiles to authenticated;
 grant select, insert, update, delete on table public.distratos to authenticated;
-grant select, insert, update on table public.notificacoes to authenticated;
+grant select, insert, update, delete on table public.notificacoes to authenticated;
 
 create policy "perfil proprio ou administracao" on public.profiles for select to authenticated
 using (id=auth.uid() or public.usuario_admin());
@@ -80,6 +80,8 @@ create policy "aprovados criam notificacoes" on public.notificacoes for insert t
 with check (public.usuario_aprovado());
 create policy "aprovados atualizam notificacoes" on public.notificacoes for update to authenticated
 using (public.usuario_aprovado()) with check (public.usuario_aprovado());
+create policy "administradores excluem notificacoes" on public.notificacoes for delete to authenticated
+using (public.usuario_admin());
 
 create index distratos_updated_at_idx on public.distratos(updated_at desc);
 create index profiles_perfil_idx on public.profiles(perfil);

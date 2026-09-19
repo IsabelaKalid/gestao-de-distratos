@@ -59,9 +59,9 @@ export function calcularDividaTotal(distrato: Distrato): number {
   if (Array.isArray(distrato.verificacoes)) {
     for (const v of distrato.verificacoes) {
       if (v.tipo === 'camera_rastreador') {
-        const cam = v.cameraValor || 0;
-        const rast = v.rastreadorValor || 0;
-        total += cam + rast;
+        total += v.lancamentos?.length
+          ? v.valor || 0
+          : (v.cameraValor || 0) + (v.rastreadorValor || 0);
       } else {
         total += v.valor || 0;
       }

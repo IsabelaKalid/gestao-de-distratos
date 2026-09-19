@@ -1,7 +1,4 @@
-import { Distrato, Usuario, Notificacao, Verificacao, TipoVerificacao } from '../types';
-import { USUARIOS_TRANSPANORAMA, gerarDistratosTranspanorama } from './transpanoramaData';
-
-export const USUARIOS_INICIAIS: Usuario[] = USUARIOS_TRANSPANORAMA;
+import { Verificacao, TipoVerificacao } from '../types';
 
 export function criarVerificacoesPadrao(distratoId: string): Verificacao[] {
   const lista: { tipo: TipoVerificacao; titulo: string; descricao: string }[] = [
@@ -32,48 +29,3 @@ export function criarVerificacoesPadrao(distratoId: string): Verificacao[] {
     anexos: [],
   }));
 }
-
-export const DISTRATOS_INICIAIS: Distrato[] = gerarDistratosTranspanorama();
-
-export const NOTIFICACOES_INICIAIS: Notificacao[] = [
-  {
-    id: 'notif-1',
-    tipo: 'atraso',
-    titulo: 'Boleto Vencido - Cobrança & Protesto',
-    mensagem: 'O distrato DIS-2026-035 (2G AUTO HOLDING) está com boleto de R$ 6.865,93 vencido (venc. 15/05/2026).',
-    dataHora: '2026-05-16T08:00:00Z',
-    lida: false,
-    perfilDestino: 'financeiro',
-    linkDistratoId: 'DIS-2026-035',
-  },
-  {
-    id: 'notif-2',
-    tipo: 'protesto',
-    titulo: 'Encaminhamento a Cartório',
-    mensagem: 'Processo DIS-2026-035 com documentação validada para envio ao 1º Tabelionato de Notas e Protestos de Maringá.',
-    dataHora: '2026-05-18T14:30:00Z',
-    lida: false,
-    perfilDestino: 'juridico',
-    linkDistratoId: 'DIS-2026-035',
-  },
-  {
-    id: 'notif-3',
-    tipo: 'pagamento',
-    titulo: 'Acordo Parcelado em Andamento',
-    mensagem: 'Distrato DIS-2026-016 (TRANSPORTADORA DFS) possui R$ 6.859,59 quitados e saldo restante de R$ 4.744,15.',
-    dataHora: '2026-02-26T10:00:00Z',
-    lida: true,
-    perfilDestino: 'financeiro',
-    linkDistratoId: 'DIS-2026-016',
-  },
-  {
-    id: 'notif-4',
-    tipo: 'atribuicao',
-    titulo: 'Pendência de Manutenção de Pátio',
-    mensagem: 'Distrato DIS-2026-023 (MAXXI TRANSPORTE) possui saldo pendente de oficina no valor de R$ 1.714,65.',
-    dataHora: '2026-03-07T09:15:00Z',
-    lida: true,
-    perfilDestino: 'manutencao',
-    linkDistratoId: 'DIS-2026-023',
-  },
-];

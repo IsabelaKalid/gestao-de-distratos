@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { CheckCircle2, Database, RefreshCw, Shield, Users } from "lucide-react";
+import { CheckCircle2, Database, Shield, Users } from "lucide-react";
 import { useDistratos } from "../context/DistratoContext";
 import { useAuth } from "../context/AuthContext";
 import { supabase } from "../lib/supabase";
@@ -32,7 +32,7 @@ const perfilPorDepartamentos = (departamentos: string[]) => {
 };
 
 export const AdminView: React.FC = () => {
-  const { usuarioAtual, resetarDados, distratos, erroDados } = useDistratos();
+  const { usuarioAtual, distratos, erroDados } = useDistratos();
   const { atualizarPerfil } = useAuth();
   const [usuarios, setUsuarios] = useState<UsuarioAdmin[]>([]);
   const [mensagem, setMensagem] = useState("");
@@ -105,19 +105,6 @@ export const AdminView: React.FC = () => {
         };
       }),
     );
-  const importar = () => {
-    if (
-      distratos.length &&
-      !window.confirm(
-        "Já existem distratos no banco. A importação atualizará os registros com os dados iniciais. Continuar?",
-      )
-    )
-      return;
-    resetarDados();
-    setMensagem(
-      "Importação iniciada. Aguarde alguns segundos para a sincronização com o Supabase.",
-    );
-  };
   if (usuarioAtual.perfil !== "admin") return null;
 
   return (
@@ -255,13 +242,9 @@ export const AdminView: React.FC = () => {
             Exibindo {distratos.length} distratos carregados do banco de dados.
           </p>
         </div>
-        <button
-          onClick={importar}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl border border-[#7e1d2c] text-[#7e1d2c] font-bold text-sm"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Importar dados iniciais
-        </button>
+        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800 font-bold text-xs">
+          Base operacional ativa
+        </span>
       </section>
       <section className="grid md:grid-cols-2 gap-4">
         <div className="card-gradient-hover bg-white border rounded-2xl p-5">

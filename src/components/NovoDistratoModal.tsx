@@ -25,8 +25,10 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
     tipoDistrato: 'Cavalo e Carreta' as Distrato['tipoDistrato'],
     placaCavalo: '',
     placaCarreta: '',
-    gridOperacao: 'SP - Curitiba Linha Expressa',
-    segmento: 'Carga Geral',
+    gridOperacao: 'Uruguai',
+    gridOutro: '',
+    segmento: 'Aço',
+    segmentoOutro: '',
     debitoAluguel: '0,00',
     statusTermoAgregacao: 'Em Encerramento' as Distrato['statusTermoAgregacao'],
   });
@@ -88,8 +90,14 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
         placaCavalo: form.placaCavalo,
         placaCarreta: form.placaCarreta,
         tipoDistrato: form.tipoDistrato,
-        gridOperacao: form.gridOperacao,
-        segmento: form.segmento,
+        gridOperacao:
+          form.gridOperacao === 'Outro'
+            ? form.gridOutro.trim() || 'Outro'
+            : form.gridOperacao,
+        segmento:
+          form.segmento === 'Outro'
+            ? form.segmentoOutro.trim() || 'Outro'
+            : form.segmento,
         debitoAluguel: valorNumerico,
         statusTermoAgregacao: form.statusTermoAgregacao,
       });
@@ -101,8 +109,10 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
         tipoDistrato: 'Cavalo e Carreta',
         placaCavalo: '',
         placaCarreta: '',
-        gridOperacao: 'SP - Curitiba Linha Expressa',
-        segmento: 'Carga Geral',
+        gridOperacao: 'Uruguai',
+        gridOutro: '',
+        segmento: 'Aço',
+        segmentoOutro: '',
         debitoAluguel: '0,00',
         statusTermoAgregacao: 'Em Encerramento',
       });
@@ -294,20 +304,58 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
+                <div className="space-y-2">
                   <label className="block text-xs font-bold text-stone-700 mb-1">
-                    Grid ou Operação
+                    Grid <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     name="gridOperacao"
                     value={form.gridOperacao}
                     onChange={handleChange}
-                    placeholder="Ex: Rota SP-PR, Linha Maringá Express"
-                    className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none"
-                  />
+                    className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none bg-white"
+                  >
+                    <option value="Uruguai">Uruguai</option>
+                    <option value="México">México</option>
+                    <option value="EUA">EUA</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                  {form.gridOperacao === 'Outro' && (
+                    <input
+                      type="text"
+                      name="gridOutro"
+                      value={form.gridOutro}
+                      onChange={handleChange}
+                      placeholder="Escreva outro grid (opcional)"
+                      className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none"
+                    />
+                  )}
                 </div>
-
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-stone-700 mb-1">
+                    Segmento <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    name="segmento"
+                    value={form.segmento}
+                    onChange={handleChange}
+                    className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none bg-white"
+                  >
+                    <option value="Aço">Aço</option>
+                    <option value="Vegetal">Vegetal</option>
+                    <option value="Graneleiro">Graneleiro</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                  {form.segmento === 'Outro' && (
+                    <input
+                      type="text"
+                      name="segmentoOutro"
+                      value={form.segmentoOutro}
+                      onChange={handleChange}
+                      placeholder="Escreva outro segmento (opcional)"
+                      className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none"
+                    />
+                  )}
+                </div>
               </div>
             </div>
           )}
