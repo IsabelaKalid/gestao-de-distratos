@@ -14,13 +14,20 @@ import { useAuth } from "../context/AuthContext";
 import { BrandLogo } from "../components/BrandLogo";
 
 export const AuthView: React.FC = () => {
-  const { entrar, cadastrar, recuperarSenha } = useAuth();
+  const { entrar, cadastrar, recuperarSenha, recuperandoSenha, atualizarSenhaRecuperada } = useAuth();
   const [pagina, setPagina] = useState<"inicio" | "acesso">("inicio");
   const [modo, setModo] = useState<"entrar" | "cadastrar">("entrar");
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
-  const [mensagem, setMensagem] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+  const [mensagem, setMensagem] = useState(() => {
+    if (sessionStorage.getItem("senha-redefinida") === "1") {
+      sessionStorage.removeItem("senha-redefinida");
+      return "Senha atualizada. Entre com sua nova senha.";
+    }
+    return "";
+  });
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [movimento, setMovimento] = useState({ x: 0, y: 0 });
@@ -67,6 +74,63 @@ export const AuthView: React.FC = () => {
       setEnviando(false);
     }
   };
+
+  const salvarNovaSenha = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErro("");
+    setMensagem("");
+    if (senha.length < 8) {
+      setErro("A nova senha deve ter no mínimo 8 caracteres.");
+      return;
+    }
+    if (senha !== confirmarSenha) {
+      setErro("As senhas informadas não são iguais.");
+      return;
+    }
+    setEnviando(true);
+    try {
+      const falha = await atualizarSenhaRecuperada(senha);
+      if (falha) setErro(falha);
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  if (recuperandoSenha)
+    return (
+      <main className="relative min-h-screen bg-[#f7f3ed] flex items-center justify-center p-4 sm:p-8">
+        <section className="w-full max-w-md bg-white border border-stone-200 shadow-xl rounded-3xl p-6 sm:p-9">
+          <div className="w-12 h-12 rounded-2xl bg-[#f8ecee] text-[#7e1d2c] flex items-center justify-center">
+            <LockKeyhole className="w-6 h-6" />
+          </div>
+          <h1 className="mt-5 text-3xl font-black text-stone-900">Criar nova senha</h1>
+          <p className="mt-2 text-sm text-stone-500">
+            Escolha uma senha com pelo menos 8 caracteres. Depois você poderá entrar normalmente.
+          </p>
+          <form onSubmit={salvarNovaSenha} className="mt-7 space-y-4">
+            <label className="block text-sm font-semibold text-stone-700">
+              Nova senha
+              <div className="mt-1.5 flex items-center border rounded-xl px-3 focus-within:ring-2 focus-within:ring-[#7e1d2c]/20">
+                <LockKeyhole className="w-4 h-4 text-stone-400" />
+                <input required minLength={8} type="password" autoComplete="new-password" value={senha} onChange={(e) => setSenha(e.target.value)} className="w-full p-3 outline-none" placeholder="No mínimo 8 caracteres" />
+              </div>
+            </label>
+            <label className="block text-sm font-semibold text-stone-700">
+              Confirmar nova senha
+              <div className="mt-1.5 flex items-center border rounded-xl px-3 focus-within:ring-2 focus-within:ring-[#7e1d2c]/20">
+                <LockKeyhole className="w-4 h-4 text-stone-400" />
+                <input required minLength={8} type="password" autoComplete="new-password" value={confirmarSenha} onChange={(e) => setConfirmarSenha(e.target.value)} className="w-full p-3 outline-none" placeholder="Digite novamente" />
+              </div>
+            </label>
+            {erro && <p role="alert" className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3">{erro}</p>}
+            <button disabled={enviando} className="w-full flex justify-center items-center gap-2 bg-[#7e1d2c] hover:bg-[#681623] text-white font-bold rounded-xl p-3 disabled:opacity-60">
+              {enviando && <Loader2 className="w-4 h-4 animate-spin" />}
+              Salvar nova senha
+            </button>
+          </form>
+        </section>
+      </main>
+    );
 
   if (pagina === "inicio")
     return (

@@ -145,7 +145,8 @@ function AppContent() {
 }
 
 function AppGate() {
-  const { session, perfil, carregando, erroPerfil, recarregarPerfil, sair } = useAuth();
+  const { session, perfil, carregando, erroPerfil, recuperandoSenha, recarregarPerfil, sair } = useAuth();
+  if (recuperandoSenha) return <AuthView />;
   if (carregando) return <div className="min-h-screen grid place-items-center bg-[#faf8f5]"><Loader2 className="w-8 h-8 text-[#7e1d2c] animate-spin" /></div>;
   if (erroPerfil) return <div className="min-h-screen grid place-items-center bg-[#faf8f5] p-6"><div role="alert" className="max-w-md bg-white border rounded-2xl shadow-lg p-8 text-center"><ShieldAlert className="w-10 h-10 mx-auto text-amber-600"/><h1 className="text-xl font-black mt-4">Não foi possível carregar seu acesso</h1><p className="text-sm text-stone-600 mt-2">{erroPerfil}</p><button type="button" onClick={() => void recarregarPerfil()} className="mt-6 px-4 py-2 rounded-xl border font-semibold">Tentar novamente</button></div></div>;
   if (!session) return <AuthView />;

@@ -10,10 +10,12 @@ type AuthContextType = {
   perfil: UsuarioAutenticado | null;
   carregando: boolean;
   erroPerfil: string | null;
+  recuperandoSenha: boolean;
   entrar: (email: string, senha: string) => Promise<string | null>;
   cadastrar: (nome: string, email: string, senha: string) => Promise<string | null>;
   sair: () => Promise<void>;
   recuperarSenha: (email: string) => Promise<string | null>;
+  atualizarSenhaRecuperada: (novaSenha: string) => Promise<string | null>;
   atualizarPerfil: (id: string, dados: { perfil: string; departamento: string; departamentos: string[]; cargo: string; aprovado: boolean; ativo: boolean }) => Promise<string | null>;
   recarregarPerfil: () => Promise<void>;
 };
@@ -38,6 +40,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [perfil, setPerfil] = useState<UsuarioAutenticado | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erroPerfil, setErroPerfil] = useState<string | null>(null);
+  const [recuperandoSenha, setRecuperandoSenha] = useState(() =>
+    window.location.hash.includes('type=recovery') ||
+    window.location.search.includes('type=recovery'),
+  );
   const requisicaoAtual = useRef(0);
   const usuarioCarregadoId = useRef<string | null>(null);
   const perfilCarregado = useRef<UsuarioAutenticado | null>(null);
@@ -78,6 +84,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       eventoAuthRecebido = true;
+      if (event === 'PASSWORD_RECOVERY') {
+        setRecuperandoSenha(true);
+        setSession(nextSession);
+        setCarregando(false);
+        return;
+      }
       // Ao voltar para a aba, o Supabase pode apenas renovar o token. Nesse caso,
       // preservamos o perfil e a tela atual para não remontar toda a aplicação.
       if (
@@ -131,6 +143,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return error?.message ?? null;
   };
 
+  const atualizarSenhaRecuperada = async (novaSenha: string) => {
+    const { error } = await supabase.auth.updateUser({ password: novaSenha });
+    if (error) return error.message;
+    sessionStorage.setItem('senha-redefinida', '1');
+    window.history.replaceState({}, document.title, window.location.pathname);
+    setRecuperandoSenha(false);
+    await supabase.auth.signOut();
+    return null;
+  };
+
   const atualizarPerfil = async (id: string, dados: { perfil: string; departamento: string; departamentos: string[]; cargo: string; aprovado: boolean; ativo: boolean }) => {
     const { error } = await supabase.rpc('atualizar_perfil_supervisor', {
       p_id: id,
@@ -146,7 +168,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const recarregarPerfil = async () => carregarSessaoEPerfil(session);
 
-  return <AuthContext.Provider value={{ session, authUser: session?.user ?? null, perfil, carregando, erroPerfil, entrar, cadastrar, sair, recuperarSenha, atualizarPerfil, recarregarPerfil }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ session, authUser: session?.user ?? null, perfil, carregando, erroPerfil, recuperandoSenha, entrar, cadastrar, sair, recuperarSenha, atualizarSenhaRecuperada, atualizarPerfil, recarregarPerfil }}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
