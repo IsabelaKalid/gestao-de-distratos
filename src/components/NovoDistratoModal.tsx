@@ -3,6 +3,23 @@ import { X, Check, ArrowRight, ArrowLeft, Truck, AlertCircle } from 'lucide-reac
 import { useDistratos } from '../context/DistratoContext';
 import { Distrato } from '../types';
 
+const textoParaNumero = (valor: string) => {
+  const texto = valor.trim();
+  if (!texto) return 0;
+  const ultimaVirgula = texto.lastIndexOf(',');
+  const ultimoPonto = texto.lastIndexOf('.');
+  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+    const decimal = ultimaVirgula > ultimoPonto ? ',' : '.';
+    const milhar = decimal === ',' ? /\./g : /,/g;
+    return Number(texto.replace(milhar, '').replace(decimal, '.')) || 0;
+  }
+  if (ultimaVirgula >= 0) return Number(texto.replace(',', '.')) || 0;
+  if (ultimoPonto >= 0 && /^\d{1,3}(\.\d{3})+$/.test(texto)) {
+    return Number(texto.replace(/\./g, '')) || 0;
+  }
+  return Number(texto) || 0;
+};
+
 interface NovoDistratoModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -29,7 +46,7 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
     gridOutro: '',
     segmento: 'Aço',
     segmentoOutro: '',
-    debitoAluguel: '0,00',
+    debitoAluguel: '',
     statusTermoAgregacao: 'Em Encerramento' as Distrato['statusTermoAgregacao'],
   });
 
@@ -42,15 +59,11 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
   };
 
   const handleMoedaChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Permite apenas dígitos e vírgula/ponto
-    let clean = e.target.value.replace(/[^\d]/g, '');
-    if (!clean) clean = '0';
-    const num = parseFloat(clean) / 100;
-    const formatado = num.toLocaleString('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-    setForm((prev) => ({ ...prev, debitoAluguel: formatado }));
+    // Mantém o campo livre durante a digitação e aceita vírgula ou ponto.
+    const valor = e.target.value
+      .replace(/[^\d,.]/g, '')
+      .replace(/([,.].*)[,.]/g, '$1');
+    setForm((prev) => ({ ...prev, debitoAluguel: valor }));
     setErroValidacao(null);
   };
 
@@ -80,9 +93,7 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
     setErroValidacao(null);
 
     // Converte string monetária brasileira para número float seguro
-    const valorNumerico = parseFloat(
-      form.debitoAluguel.replace(/\./g, '').replace(',', '.')
-    ) || 0;
+    const valorNumerico = textoParaNumero(form.debitoAluguel);
 
     try {
       const idGerado = criarDistrato({
@@ -113,7 +124,7 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
         gridOutro: '',
         segmento: 'Aço',
         segmentoOutro: '',
-        debitoAluguel: '0,00',
+        debitoAluguel: '',
         statusTermoAgregacao: 'Em Encerramento',
       });
 
@@ -373,6 +384,7 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
                   </span>
                   <input
                     type="text"
+                    inputMode="decimal"
                     name="debitoAluguel"
                     value={form.debitoAluguel}
                     onChange={handleMoedaChange}

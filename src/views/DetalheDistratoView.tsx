@@ -95,9 +95,29 @@ const dataBrParaIso = (data: string) => {
 };
 
 const valorTextoParaNumero = (valor: string) => {
-  const numero = Number(valor.replace(/\./g, "").replace(",", "."));
+  const texto = valor.trim();
+  if (!texto) return 0;
+  const ultimaVirgula = texto.lastIndexOf(",");
+  const ultimoPonto = texto.lastIndexOf(".");
+  let normalizado = texto;
+  if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+    const decimal = ultimaVirgula > ultimoPonto ? "," : ".";
+    normalizado = texto
+      .replace(decimal === "," ? /\./g : /,/g, "")
+      .replace(decimal, ".");
+  } else if (ultimaVirgula >= 0) {
+    normalizado = texto.replace(",", ".");
+  } else if (ultimoPonto >= 0 && /^\d{1,3}(\.\d{3})+$/.test(texto)) {
+    normalizado = texto.replace(/\./g, "");
+  }
+  const numero = Number(normalizado);
   return Number.isFinite(numero) ? numero : 0;
 };
+
+const limparEntradaDecimal = (valor: string) =>
+  valor
+    .replace(/[^\d,.]/g, "")
+    .replace(/([,.].*)[,.]/g, "$1");
 
 const calcularDvModulo10 = (campo: string) => {
   let soma = 0;
@@ -1521,6 +1541,10 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       (item) => item.id === detalheLancamento.verificacaoId,
     );
     if (!verificacao) return;
+    if (!Number.isFinite(detalheLancamento.lancamento.valor)) {
+      window.alert("Informe um valor válido para a dívida.");
+      return;
+    }
     const totalJaPago = totalPagoNaDivida(detalheLancamento.lancamento.id);
     if (Number(detalheLancamento.lancamento.valor) + 0.009 < totalJaPago) {
       window.alert(
@@ -1580,8 +1604,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   // Manipulador de Pagamento
   const handleSalvarPagamento = async (e: React.FormEvent) => {
     e.preventDefault();
-    const val =
-      parseFloat(formPagamento.valor.replace(/\./g, "").replace(",", ".")) || 0;
+    const val = valorTextoParaNumero(formPagamento.valor);
     if (val <= 0) return;
     if (!dividaSelecionada) {
       setErroPagamento("Selecione a dívida em aberto que recebeu este pagamento.");
@@ -2198,12 +2221,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                               <input
                                 type="number"
                                 step="0.01"
-                                value={formVerif.cameraValor || 0}
+                                value={formVerif.cameraValor ?? ""}
                                 onChange={(e) =>
                                   setFormVerif((prev) => ({
                                     ...prev,
-                                    cameraValor:
-                                      parseFloat(e.target.value) || 0,
+                                    cameraValor: e.target.value === "" ? undefined : Number(e.target.value),
                                   }))
                                 }
                                 className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-stone-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#7e1d2c]/20"
@@ -2216,12 +2238,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                               <input
                                 type="number"
                                 step="0.01"
-                                value={formVerif.rastreadorValor || 0}
+                                value={formVerif.rastreadorValor ?? ""}
                                 onChange={(e) =>
                                   setFormVerif((prev) => ({
                                     ...prev,
-                                    rastreadorValor:
-                                      parseFloat(e.target.value) || 0,
+                                    rastreadorValor: e.target.value === "" ? undefined : Number(e.target.value),
                                   }))
                                 }
                                 className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-stone-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#7e1d2c]/20"
@@ -2260,11 +2281,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                               <input
                                 type="number"
                                 step="0.01"
-                                value={formVerif.valor || 0}
+                                value={formVerif.valor ?? ""}
                                 onChange={(e) =>
                                   setFormVerif((prev) => ({
                                     ...prev,
-                                    valor: parseFloat(e.target.value) || 0,
+                                    valor: e.target.value === "" ? undefined : Number(e.target.value),
                                   }))
                                 }
                                 className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-stone-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#7e1d2c]/20"
@@ -2279,14 +2300,13 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                                   type="number"
                                   min="0"
                                   step="1"
-                                  value={formVerif.pneusQuantidade || 0}
+                                  value={formVerif.pneusQuantidade ?? ""}
                                   onChange={(e) =>
                                     setFormVerif((prev) => ({
                                       ...prev,
-                                      pneusQuantidade: Math.max(
-                                        0,
-                                        parseInt(e.target.value, 10) || 0,
-                                      ),
+                                      pneusQuantidade: e.target.value === ""
+                                        ? undefined
+                                        : Math.max(0, parseInt(e.target.value, 10)),
                                     }))
                                   }
                                   className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg bg-white outline-none"
@@ -2640,8 +2660,10 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                                       step="0.01"
                                       value={
                                         v.tipo === "camera_rastreador"
-                                          ? Number(pendente.form.cameraValor || 0) + Number(pendente.form.rastreadorValor || 0)
-                                          : pendente.form.valor || 0
+                                          ? pendente.form.cameraValor == null && pendente.form.rastreadorValor == null
+                                            ? ""
+                                            : Number(pendente.form.cameraValor || 0) + Number(pendente.form.rastreadorValor || 0)
+                                          : pendente.form.valor ?? ""
                                       }
                                       onChange={(event) =>
                                         setLancamentosPendentes((atuais) =>
@@ -2651,8 +2673,12 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                                                   ...item,
                                                   form:
                                                     v.tipo === "camera_rastreador"
-                                                      ? { ...item.form, cameraValor: Number(event.target.value), rastreadorValor: 0 }
-                                                      : { ...item.form, valor: Number(event.target.value) },
+                                                      ? {
+                                                          ...item.form,
+                                                          cameraValor: event.target.value === "" ? undefined : Number(event.target.value),
+                                                          rastreadorValor: event.target.value === "" ? undefined : 0,
+                                                        }
+                                                      : { ...item.form, valor: event.target.value === "" ? undefined : Number(event.target.value) },
                                                 }
                                               : item,
                                           ),
@@ -3383,16 +3409,12 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                   placeholder="0,00"
                   value={formPagamento.valor}
                   onChange={(e) => {
-                    let clean = e.target.value.replace(/[^\d]/g, "");
-                    if (!clean) clean = "0";
-                    const num = parseFloat(clean) / 100;
                     setFormPagamento((prev) => ({
                       ...prev,
-                      valor: num.toLocaleString("pt-BR", {
-                        minimumFractionDigits: 2,
-                      }),
+                      valor: limparEntradaDecimal(e.target.value),
                     }));
                   }}
+                  inputMode="decimal"
                   className="w-full px-3 py-2 text-sm font-bold font-mono border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 outline-none"
                   autoFocus
                 />
@@ -3647,10 +3669,10 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                     min="0"
                     step="0.01"
                     disabled={!detalheLancamento.editando}
-                    value={detalheLancamento.lancamento.valor}
+                    value={Number.isNaN(detalheLancamento.lancamento.valor) ? "" : detalheLancamento.lancamento.valor}
                     onChange={(event) =>
                       setDetalheLancamento((atual) =>
-                        atual ? { ...atual, lancamento: { ...atual.lancamento, valor: Number(event.target.value) } } : null,
+                        atual ? { ...atual, lancamento: { ...atual.lancamento, valor: event.target.value === "" ? Number.NaN : Number(event.target.value) } } : null,
                       )
                     }
                     className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg bg-white disabled:bg-stone-50 font-mono font-normal"
@@ -3748,8 +3770,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
               className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs"
               onSubmit={(event) => {
                 event.preventDefault();
+                const debitoAluguel = Number.isFinite(formCadastro.debitoAluguel)
+                  ? formCadastro.debitoAluguel
+                  : 0;
                 const aluguelJaPago = totalPagoNaDivida("aluguel-contratual");
-                if (formCadastro.debitoAluguel + 0.009 < aluguelJaPago) {
+                if (debitoAluguel + 0.009 < aluguelJaPago) {
                   window.alert(
                     `O débito de aluguel não pode ser menor que o total já pago (${formatarMoeda(aluguelJaPago)}).`,
                   );
@@ -3768,7 +3793,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                     formCadastro.segmento === "Outro"
                       ? formCadastro.segmentoOutro.trim() || "Outro"
                       : formCadastro.segmento,
-                  debitoAluguel: formCadastro.debitoAluguel,
+                  debitoAluguel,
                   statusTermoAgregacao: formCadastro.statusTermoAgregacao,
                 });
                 setModalEditarCadastro(false);
@@ -3896,11 +3921,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                   type="number"
                   min="0"
                   step="0.01"
-                  value={formCadastro.debitoAluguel}
+                  value={Number.isNaN(formCadastro.debitoAluguel) ? "" : formCadastro.debitoAluguel}
                   onChange={(e) =>
                     setFormCadastro((atual) => ({
                       ...atual,
-                      debitoAluguel: Number(e.target.value),
+                      debitoAluguel: e.target.value === "" ? Number.NaN : Number(e.target.value),
                     }))
                   }
                   className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg font-mono font-normal"
@@ -4127,9 +4152,10 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                           onChange={(e) =>
                             setDadosBoleto((atual) => ({
                               ...atual,
-                              valor: e.target.value,
+                              valor: limparEntradaDecimal(e.target.value),
                             }))
                           }
+                          inputMode="decimal"
                           placeholder="0,00"
                           className="mt-1 w-full px-3 py-2 border border-stone-300 rounded-lg bg-white font-mono font-normal"
                         />
@@ -4181,12 +4207,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                       modalAnexo.categoria === "Boleto de cobrança" &&
                       arquivoBoleto
                     ) {
-                      const valor =
-                        parseFloat(
-                          dadosBoleto.valor
-                            .replace(/\./g, "")
-                            .replace(",", "."),
-                        ) || 0;
+                      const valor = valorTextoParaNumero(dadosBoleto.valor);
                       if (valor <= 0 || !dadosBoleto.vencimento) {
                         window.alert(
                           "Confira e informe o valor e o vencimento do boleto.",
@@ -4379,9 +4400,10 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                     onChange={(e) =>
                       setFormProtesto((prev) => ({
                         ...prev,
-                        custas: e.target.value,
+                        custas: limparEntradaDecimal(e.target.value),
                       }))
                     }
+                    inputMode="decimal"
                     className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg outline-none font-mono"
                   />
                 </div>
@@ -4459,8 +4481,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                       );
                       return;
                     }
-                    const custas =
-                      parseFloat(formProtesto.custas.replace(",", ".")) || 0;
+                    const custas = valorTextoParaNumero(formProtesto.custas);
                     encaminharParaProtesto(
                       distrato.id,
                       formProtesto.cartorio,
@@ -4539,12 +4560,13 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 <input
                   type="text"
                   value={formAjuizamento.valorAcao}
-                  onChange={(e) =>
-                    setFormAjuizamento((prev) => ({
-                      ...prev,
-                      valorAcao: e.target.value,
-                    }))
-                  }
+                    onChange={(e) =>
+                      setFormAjuizamento((prev) => ({
+                        ...prev,
+                        valorAcao: limparEntradaDecimal(e.target.value),
+                      }))
+                    }
+                    inputMode="decimal"
                   className="w-full px-3 py-2 text-xs font-mono font-bold border border-stone-300 rounded-lg outline-none"
                 />
               </div>
@@ -4608,8 +4630,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                       return;
                     }
                     const val =
-                      parseFloat(formAjuizamento.valorAcao.replace(",", ".")) ||
-                      saldoRestante;
+                      valorTextoParaNumero(formAjuizamento.valorAcao) || saldoRestante;
                     encaminharParaAjuizamento(distrato.id, {
                       numeroProcesso: formAjuizamento.numeroProcesso,
                       varaComarca: formAjuizamento.varaComarca,
