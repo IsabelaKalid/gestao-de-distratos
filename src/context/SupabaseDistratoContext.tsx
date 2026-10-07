@@ -34,8 +34,11 @@ interface DistratoContextType {
   selecionarDistrato: (id: string | null) => void;
   criarDistrato: (dados: {
     agregadoNome: string;
+    empresaNome?: string;
     placaCavalo: string;
     placaCarreta: string;
+    dataEngateInicial?: string;
+    dataEngateFinal?: string;
     tipoDistrato: Distrato["tipoDistrato"];
     gridOperacao: string;
     segmento: string;
@@ -48,8 +51,11 @@ interface DistratoContextType {
       Pick<
         Distrato,
         | "agregadoNome"
+        | "empresaNome"
         | "placaCavalo"
         | "placaCarreta"
+        | "dataEngateInicial"
+        | "dataEngateFinal"
         | "tipoDistrato"
         | "gridOperacao"
         | "segmento"
@@ -77,6 +83,7 @@ interface DistratoContextType {
       dividaDescricao?: string;
       verificacaoId?: string;
       lancamentoId?: string;
+      lotePagamentoId?: string;
       comprovanteNome?: string;
       comprovanteUrl?: string;
       observacao?: string;
@@ -134,9 +141,16 @@ interface DistratoContextType {
       url?: string;
     },
   ) => void;
+  substituirAnexosLancamento: (
+    distratoId: string,
+    verificacaoId: string,
+    lancamentoId: string,
+    anexos: Anexo[],
+  ) => void;
   marcarNotificacaoComoLida: (id: string) => void;
   marcarTodasNotificacoesLidas: () => void;
   reabrirDistrato: (distratoId: string, justificativa: string) => void;
+  finalizarDistrato: (distratoId: string) => void;
   adicionarHistoricoManual: (
     distratoId: string,
     campo: string,
@@ -202,9 +216,63 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
         setCarregandoDados(false);
         return;
       }
-      const iniciais = (resDistratos.data || []).map(
-        (row: any) => row.dados as Distrato,
-      );
+      const iniciais = (resDistratos.data || []).map((row: any) => {
+        const distrato = row.dados as Distrato;
+        const modelos = criarVerificacoesPadrao(distrato.id, distrato.debitoAluguel || 0);
+        const idsLancamentosVistos = new Set<string>();
+        const verificacoes = modelos.map((modelo) => {
+          const existente = distrato.verificacoes?.find((item) => item.tipo === modelo.tipo);
+          if (!existente) return modelo;
+          const lancamentosOriginais = existente.lancamentos || modelo.lancamentos || [];
+          const lancamentos = lancamentosOriginais
+            .filter((lancamento) => {
+              if (idsLancamentosVistos.has(lancamento.id)) return false;
+              idsLancamentosVistos.add(lancamento.id);
+              return true;
+            })
+            .map((lancamento) =>
+              existente.tipo === "suprimentos" && !lancamento.auditoriaTipo
+                ? {
+                    ...lancamento,
+                    auditoriaTipo: "Nova pendência" as const,
+                    auditoriaStatus: "Concluída" as const,
+                    auditoriaConclusao: "Nova pendência confirmada" as const,
+                    auditoriaCondicao:
+                      lancamento.observacoes || "Pendência registrada antes da atualização do fluxo de auditoria.",
+                    auditoriaSeveridade: "Média" as const,
+                    valorAuditado: Number(lancamento.valor || 0),
+                  }
+                : lancamento,
+          );
+          const valorLancamentos = lancamentos.reduce(
+            (total, lancamento) => total + (lancamento.auditoriaTipo === "Conferência" ? 0 : Number(lancamento.valor || 0)),
+            0,
+          );
+          const perdeuDuplicados = lancamentos.length < lancamentosOriginais.length;
+          return {
+            ...modelo,
+            ...existente,
+            id: modelo.id,
+            tipo: modelo.tipo,
+            titulo: modelo.titulo,
+            descricao: modelo.descricao,
+            valor: lancamentosOriginais.length ? valorLancamentos : existente.valor,
+            status: perdeuDuplicados && lancamentos.length === 0
+              ? "Aguardando análise"
+              : existente.tipo !== "suprimentos" && lancamentos.length
+                ? valorLancamentos > 0 ? "Pendência encontrada" : "Sem pendências"
+                : existente.status,
+            lancamentos,
+          };
+        });
+        const hidratado = {
+          ...distrato,
+          statusGeral:
+            distrato.statusGeral === "Quitado" ? "Em andamento" : distrato.statusGeral,
+          verificacoes,
+        } as Distrato;
+        return { ...hidratado, ...atualizarStatusAutomaticos(hidratado) } as Distrato;
+      });
       salvos.current = new Map(
         iniciais.map((d: Distrato) => [d.id, JSON.stringify(d)]),
       );
@@ -329,8 +397,11 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const criarDistrato = (dados: {
     agregadoNome: string;
+    empresaNome?: string;
     placaCavalo: string;
     placaCarreta: string;
+    dataEngateInicial?: string;
+    dataEngateFinal?: string;
     tipoDistrato: Distrato["tipoDistrato"];
     gridOperacao: string;
     segmento: string;
@@ -361,18 +432,21 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       id: novoId,
       agregadoId: `agr-${Date.now()}`,
       agregadoNome: dados.agregadoNome,
+      empresaNome: dados.empresaNome?.trim() || undefined,
       agregadoCodigo: novoCodigoAgregado,
       dataSolicitacao: hoje,
       statusTermoAgregacao: dados.statusTermoAgregacao,
       placaCavalo: dados.placaCavalo.toUpperCase().trim(),
       placaCarreta: dados.placaCarreta.toUpperCase().trim(),
+      dataEngateInicial: dados.dataEngateInicial || undefined,
+      dataEngateFinal: dados.dataEngateFinal || undefined,
       debitoAluguel: Number(dados.debitoAluguel) || 0,
       gridOperacao: dados.gridOperacao,
       segmento: dados.segmento,
       tipoDistrato: dados.tipoDistrato,
       responsavelAtualId: usuarioAtual.id,
       responsavelAtualNome: usuarioAtual.nome,
-      statusGeral: "Em Auditoria",
+      statusGeral: "Em andamento",
       statusFinanceiro: "Aguardando boleto",
       dataCriacao: agoraIso,
       dataUltimaAtualizacao: agoraIso,
@@ -380,7 +454,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       docsConferidosProtesto: false,
       encaminhadoProtesto: false,
       encaminhadoAjuizamento: false,
-      verificacoes: criarVerificacoesPadrao(novoId),
+      verificacoes: criarVerificacoesPadrao(novoId, Number(dados.debitoAluguel) || 0),
       pagamentos: [],
       boletos: [],
       documentos: [],
@@ -435,6 +509,10 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
           const verAtualizada: Verificacao = {
             ...v,
             ...novosDados,
+            id: v.id,
+            tipo: v.tipo,
+            titulo: v.titulo,
+            descricao: v.descricao,
             responsavelId: usuarioAtual.id,
             responsavelNome: usuarioAtual.nome,
             dataAuditoria: novosDados.dataAuditoria || agoraIso.split("T")[0],
@@ -590,6 +668,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       dividaDescricao?: string;
       verificacaoId?: string;
       lancamentoId?: string;
+      lotePagamentoId?: string;
       comprovanteNome?: string;
       comprovanteUrl?: string;
       observacao?: string;
@@ -597,7 +676,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     const agoraIso = new Date().toISOString();
     const novoPag: Pagamento = {
-      id: `pag-${Date.now()}`,
+      id: `pag-${crypto.randomUUID()}`,
       distratoId,
       data: pagamento.data,
       valor: Number(pagamento.valor),
@@ -606,6 +685,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
       dividaDescricao: pagamento.dividaDescricao,
       verificacaoId: pagamento.verificacaoId,
       lancamentoId: pagamento.lancamentoId,
+      lotePagamentoId: pagamento.lotePagamentoId,
       formaPagamento: pagamento.formaPagamento,
       comprovanteNome: pagamento.comprovanteNome,
       comprovanteUrl: pagamento.comprovanteUrl,
@@ -1088,6 +1168,60 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
     );
   };
 
+  const substituirAnexosLancamento = (
+    distratoId: string,
+    verificacaoId: string,
+    lancamentoId: string,
+    anexos: Anexo[],
+  ) => {
+    const agoraIso = new Date().toISOString();
+    setDistratos((prev) =>
+      prev.map((d) => {
+        if (d.id !== distratoId) return d;
+        const verificacao = d.verificacoes.find((item) => item.id === verificacaoId);
+        const lancamento = verificacao?.lancamentos?.find((item) => item.id === lancamentoId);
+        const idsAnteriores = new Set((lancamento?.anexos || []).map((item) => item.id));
+        return {
+          ...d,
+          verificacoes: d.verificacoes.map((item) =>
+            item.id === verificacaoId
+              ? {
+                  ...item,
+                  lancamentos: (item.lancamentos || []).map((registro) =>
+                    registro.id === lancamentoId ? { ...registro, anexos } : registro,
+                  ),
+                  anexos: [
+                    ...(item.anexos || []).filter((anexo) => !idsAnteriores.has(anexo.id)),
+                    ...anexos,
+                  ],
+                }
+              : item,
+          ),
+          documentos: [
+            ...d.documentos.filter((anexo) => !idsAnteriores.has(anexo.id)),
+            ...anexos,
+          ],
+          dataUltimaAtualizacao: agoraIso,
+          historico: [
+            {
+              id: `hist-${crypto.randomUUID()}`,
+              distratoId: d.id,
+              dataHora: agoraIso,
+              usuarioId: usuarioAtual.id,
+              usuarioNome: usuarioAtual.nome,
+              perfil: usuarioAtual.perfil,
+              campoAlterado: "Anexos do lançamento",
+              valorAnterior: `${idsAnteriores.size} arquivo(s)`,
+              valorNovo: `${anexos.length} arquivo(s)`,
+              justificativa: "Substituição realizada durante a edição do lançamento",
+            },
+            ...d.historico,
+          ],
+        };
+      }),
+    );
+  };
+
   const reabrirDistrato = (distratoId: string, justificativa: string) => {
     const agoraIso = new Date().toISOString();
     setDistratos((prev) =>
@@ -1096,8 +1230,8 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
 
         const distratoModificado: Distrato = {
           ...d,
-          statusGeral: "Em Aberto",
-          statusFinanceiro: "Aguardando boleto",
+          statusGeral: "Em andamento",
+          statusFinanceiro: d.statusFinanceiro,
           dataUltimaAtualizacao: agoraIso,
           historico: [
             {
@@ -1117,6 +1251,36 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
         };
 
         return distratoModificado;
+      }),
+    );
+  };
+
+  const finalizarDistrato = (distratoId: string) => {
+    const agoraIso = new Date().toISOString();
+    setDistratos((prev) =>
+      prev.map((d) => {
+        if (d.id !== distratoId) return d;
+        if (calcularSaldoRestante(d) > 0.009) return d;
+        return {
+          ...d,
+          statusGeral: "Finalizado",
+          dataUltimaAtualizacao: agoraIso,
+          historico: [
+            {
+              id: `hist-${Date.now()}`,
+              distratoId: d.id,
+              dataHora: agoraIso,
+              usuarioId: usuarioAtual.id,
+              usuarioNome: usuarioAtual.nome,
+              perfil: usuarioAtual.perfil,
+              campoAlterado: "Finalização do Distrato",
+              valorAnterior: d.statusGeral,
+              valorNovo: "Finalizado",
+              justificativa: "Encerramento formal após conclusão das verificações e quitação financeira.",
+            },
+            ...d.historico,
+          ],
+        };
       }),
     );
   };
@@ -1188,9 +1352,11 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
         efetivarProtesto,
         encaminharParaAjuizamento,
         adicionarDocumento,
+        substituirAnexosLancamento,
         marcarNotificacaoComoLida,
         marcarTodasNotificacoesLidas,
         reabrirDistrato,
+        finalizarDistrato,
         adicionarHistoricoManual,
         carregandoDados,
         erroDados,

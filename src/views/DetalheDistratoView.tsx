@@ -37,6 +37,7 @@ import {
   calcularDividaTotal,
   calcularTotalPago,
   calcularSaldoRestante,
+  todasVerificacoesConcluidas,
 } from "../utils/calculations";
 import { StatusBadge } from "../components/StatusBadge";
 import { supabase } from "../lib/supabase";
@@ -435,7 +436,9 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     efetivarProtesto,
     encaminharParaAjuizamento,
     adicionarDocumento,
+    substituirAnexosLancamento,
     reabrirDistrato,
+    finalizarDistrato,
     atualizarDadosCadastrais,
     excluirDistrato,
   } = useDistratos();
@@ -475,8 +478,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   const [erroExclusao, setErroExclusao] = useState("");
   const [formCadastro, setFormCadastro] = useState({
     agregadoNome: "",
+    empresaNome: "",
     placaCavalo: "",
     placaCarreta: "",
+    dataEngateInicial: "",
+    dataEngateFinal: "",
     tipoDistrato: "Cavalo e Carreta" as Distrato["tipoDistrato"],
     gridOperacao: "",
     gridOutro: "",
@@ -1151,6 +1157,9 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     lancamento: LancamentoVerificacao;
     editando: boolean;
   }>(null);
+  const [arquivosSubstituicao, setArquivosSubstituicao] = useState<File[]>([]);
+  const [salvandoEdicaoLancamento, setSalvandoEdicaoLancamento] = useState(false);
+  const [verificacoesRecolhidas, setVerificacoesRecolhidas] = useState<Set<string>>(new Set());
 
   // Estado para novo pagamento
   const [modalNovoPagamento, setModalNovoPagamento] = useState(false);
@@ -1159,12 +1168,15 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   );
   const [enviandoPagamento, setEnviandoPagamento] = useState(false);
   const [erroPagamento, setErroPagamento] = useState("");
+  const [dividasSelecionadasIds, setDividasSelecionadasIds] = useState<string[]>([]);
+  const [filtroCategoriaPagamento, setFiltroCategoriaPagamento] = useState<
+    NonNullable<Pagamento["categoria"]> | "Todas"
+  >("Todas");
   const [formPagamento, setFormPagamento] = useState({
     valor: "",
     data: new Date().toISOString().slice(0, 10),
     formaPagamento: "PIX" as Pagamento["formaPagamento"],
     categoria: "Aluguel" as NonNullable<Pagamento["categoria"]>,
-    dividaId: "",
     observacao: "",
     comprovanteNome: "",
   });
@@ -1217,7 +1229,12 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   const dividaTotal = calcularDividaTotal(distrato);
   const totalPago = calcularTotalPago(distrato);
   const saldoRestante = calcularSaldoRestante(distrato);
+  const totalExtrasAuditoria = distrato.verificacoes
+    .flatMap((verificacao) => verificacao.lancamentos || [])
+    .filter((lancamento) => lancamento.auditoriaTipo === "Nova pendência" && lancamento.responsavelCusto !== "Transpanorama")
+    .reduce((total, lancamento) => total + Number(lancamento.valor || 0), 0);
   const categoriaPorTipo: Record<string, NonNullable<Pagamento["categoria"]>> = {
+    aluguel_equipamento: "Aluguel",
     manutencao: "Manutenção",
     sinistro: "Manutenção",
     perda_carga: "Outros",
@@ -1236,7 +1253,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       .filter((p) => p.dividaId === dividaId)
       .reduce((soma, p) => soma + Number(p.valor || 0), 0);
   const dividasParaPagamento = [
-    ...(distrato.debitoAluguel > 0
+    ...(!distrato.verificacoes.some((item) => item.tipo === "aluguel_equipamento") && distrato.debitoAluguel > 0
       ? [{
           id: "aluguel-contratual",
           categoria: "Aluguel" as const,
@@ -1248,12 +1265,16 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       const categoria = categoriaPorTipo[verificacao.tipo] || "Outros";
       if (verificacao.lancamentos?.length) {
         return verificacao.lancamentos
-          .filter((lancamento) => Number(lancamento.valor) > 0)
+          .filter((lancamento) =>
+            Number(lancamento.valor) > 0 &&
+            lancamento.responsavelCusto !== "Transpanorama" &&
+            lancamento.auditoriaTipo !== "Conferência"
+          )
           .map((lancamento) => ({
             id: lancamento.id,
             categoria,
             descricao: lancamento.observacoes
-              ? `${verificacao.titulo} — ${lancamento.observacoes}`
+              ? `${lancamento.auditoriaTipo === "Nova pendência" ? "Pendência extra da Auditoria — " : ""}${verificacao.titulo} — ${lancamento.observacoes}`
               : `Lançamento de ${verificacao.titulo}`,
             valor: Number(lancamento.valor),
             verificacaoId: verificacao.id,
@@ -1275,8 +1296,17 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     return { ...divida, pago, saldo: Math.max(0, divida.valor - pago) };
   });
   const dividasEmAberto = dividasParaPagamento.filter((divida) => divida.saldo > 0.009);
-  const dividaSelecionada = dividasParaPagamento.find(
-    (divida) => divida.id === formPagamento.dividaId,
+  const dividasFiltradasPagamento = dividasEmAberto.filter(
+    (divida) =>
+      filtroCategoriaPagamento === "Todas" ||
+      divida.categoria === filtroCategoriaPagamento,
+  );
+  const dividasSelecionadas = dividasEmAberto.filter((divida) =>
+    dividasSelecionadasIds.includes(divida.id),
+  );
+  const saldoSelecionado = dividasSelecionadas.reduce(
+    (soma, divida) => soma + divida.saldo,
+    0,
   );
   const situacaoDivida = (dividaId: string, valor: number) => {
     const pago = totalPagoNaDivida(dividaId);
@@ -1289,6 +1319,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     (usuarioAtual.departamento ? [usuarioAtual.departamento] : []);
   const supervisor = usuarioAtual.perfil === "admin";
   const areaPorTipo: Record<string, string> = {
+    aluguel_equipamento: "Oficina",
     manutencao: "Oficina",
     sinistro: "Oficina",
     perda_carga: "Auditoria",
@@ -1325,8 +1356,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     const segmentosPadrao = ["Aço", "Vegetal", "Graneleiro"];
     setFormCadastro({
       agregadoNome: distrato.agregadoNome,
+      empresaNome: distrato.empresaNome || "",
       placaCavalo: distrato.placaCavalo,
       placaCarreta: distrato.placaCarreta,
+      dataEngateInicial: distrato.dataEngateInicial || "",
+      dataEngateFinal: distrato.dataEngateFinal || "",
       tipoDistrato: distrato.tipoDistrato,
       gridOperacao: gridsPadrao.includes(distrato.gridOperacao)
         ? distrato.gridOperacao
@@ -1353,13 +1387,31 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       ...v,
       valor: 0,
       cameraValor: 0,
+      cameraQuantidade: 1,
       rastreadorValor: 0,
+      rastreadorQuantidade: 1,
       pneusQuantidade: 0,
-      anttStatus: v.anttStatus || "Em observação",
+      anttStatus: v.anttStatus || "Em andamento",
+      responsavelCusto: v.responsavelCusto || "Agregado",
+      quantidade: 1,
+      valorUnitario: 0,
       observacoes: "",
       abastecimentoNumeroNF: "",
       multasAutos: "",
       estacionamentoTag: "",
+      suprimentosTipoLancamento: "Conferência",
+      suprimentosDividaOrigemId: "",
+      suprimentosValorAuditado: 0,
+      suprimentosAuditoriaStatus: "Em análise",
+      suprimentosAuditoriaConclusao: "Conforme",
+      suprimentosCriterio: "",
+      suprimentosCondicao: "",
+      suprimentosCausa: "",
+      suprimentosEfeito: "",
+      suprimentosRecomendacao: "",
+      suprimentosSeveridade: "Média",
+      suprimentosResponsavelAcao: "",
+      suprimentosPrazoAcao: "",
       responsavelAuditoria: usuarioAtual.nome,
     });
     setArquivosAuditoria([]);
@@ -1371,9 +1423,20 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     verificacao: Verificacao,
     formulario: Partial<Verificacao>,
   ) => {
+    if (verificacao.tipo === "suprimentos") {
+      return formulario.suprimentosTipoLancamento === "Nova pendência"
+        ? Number(formulario.valor || 0)
+        : 0;
+    }
     if (formulario.status === "Sem pendências" || verificacao.tipo === "antt") return 0;
+    if (verificacao.tipo === "pneus") {
+      const quantidade = Number(formulario.quantidade ?? formulario.pneusQuantidade ?? 0);
+      const valorUnitario = Number(formulario.valorUnitario ?? 0);
+      if (quantidade > 0 && valorUnitario >= 0) return quantidade * valorUnitario;
+    }
     return verificacao.tipo === "camera_rastreador"
-      ? Number(formulario.cameraValor || 0) + Number(formulario.rastreadorValor || 0)
+      ? Number(formulario.cameraValor || 0) * Number(formulario.cameraQuantidade || 1) +
+        Number(formulario.rastreadorValor || 0) * Number(formulario.rastreadorQuantidade || 1)
       : Number(formulario.valor || 0);
   };
 
@@ -1386,7 +1449,9 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       ...atual,
       valor: 0,
       cameraValor: 0,
+      cameraQuantidade: 1,
       rastreadorValor: 0,
+      rastreadorQuantidade: 1,
       observacoes: "",
       sinistroDescricao: "",
       perdaCargaDescricao: "",
@@ -1400,8 +1465,23 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       estacionamentoTag: "",
       pneusObservacao: "",
       pneusQuantidade: 0,
+      quantidade: 1,
+      valorUnitario: 0,
       anttData: "",
       suprimentosData: "",
+      suprimentosTipoLancamento: "Conferência",
+      suprimentosDividaOrigemId: "",
+      suprimentosValorAuditado: 0,
+      suprimentosAuditoriaStatus: "Em análise",
+      suprimentosAuditoriaConclusao: "Conforme",
+      suprimentosCriterio: "",
+      suprimentosCondicao: "",
+      suprimentosCausa: "",
+      suprimentosEfeito: "",
+      suprimentosRecomendacao: "",
+      suprimentosSeveridade: "Média",
+      suprimentosResponsavelAcao: "",
+      suprimentosPrazoAcao: "",
     }));
     setArquivosAuditoria([]);
     setErroAuditoria("");
@@ -1418,6 +1498,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       Boolean(formVerif.abastecimentoNumeroNF) ||
       Boolean(formVerif.multasAutos) ||
       Boolean(formVerif.estacionamentoTag) ||
+      Number(formVerif.suprimentosValorAuditado || 0) > 0 ||
       arquivosAuditoria.length > 0;
     const entradas = [
       ...lancamentosPendentes,
@@ -1432,6 +1513,34 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     );
     if (invalidos.length) {
       setErroAuditoria("Use somente PDF, JPG ou PNG de até 10 MB por arquivo.");
+      return;
+    }
+    if (
+      verificacao.tipo === "suprimentos" &&
+      entradas.some(
+        (entrada) =>
+          entrada.form.suprimentosTipoLancamento === "Nova pendência" &&
+          (!entrada.form.suprimentosCondicao?.trim() || Number(entrada.form.valor || 0) <= 0),
+      )
+    ) {
+      setErroAuditoria(
+        "Para uma nova pendência, informe a situação encontrada e um valor maior que zero.",
+      );
+      return;
+    }
+    if (
+      verificacao.tipo === "suprimentos" &&
+      entradas.some(
+        (entrada) =>
+          entrada.form.suprimentosAuditoriaStatus === "Concluída" &&
+          (!entrada.form.suprimentosCriterio?.trim() ||
+            !entrada.form.suprimentosCondicao?.trim() ||
+            entrada.arquivos.length === 0),
+      )
+    ) {
+      setErroAuditoria(
+        "Para concluir a auditoria, informe o critério, a situação encontrada e anexe ao menos uma evidência.",
+      );
       return;
     }
 
@@ -1480,12 +1589,45 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
           entrada.form.anttData ||
           entrada.form.suprimentosData ||
           new Date().toISOString().slice(0, 10);
+        const observacoes = entrada.form.observacoes?.trim() ||
+          `${verificacao.titulo} • ${dataLancamento.split("-").reverse().join("/")}`;
+        const dividaAuditada = dividasParaPagamento.find(
+          (divida) => divida.id === entrada.form.suprimentosDividaOrigemId,
+        );
         novosLancamentos.push({
           id: `lanc-${crypto.randomUUID()}`,
           data: dataLancamento,
           valor: valorDoFormulario(verificacao, entrada.form),
           numeroDocumento,
-          observacoes: entrada.form.observacoes || "",
+          observacoes,
+          responsavelCusto: entrada.form.responsavelCusto || "Agregado",
+          quantidade: entrada.form.quantidade ?? entrada.form.pneusQuantidade,
+          valorUnitario: entrada.form.valorUnitario,
+          auditoriaTipo:
+            verificacao.tipo === "suprimentos"
+              ? entrada.form.suprimentosTipoLancamento || "Conferência"
+              : undefined,
+          dividaAuditadaId: dividaAuditada?.id,
+          dividaAuditadaDescricao: dividaAuditada?.descricao,
+          valorOriginalAuditado: dividaAuditada?.valor,
+          valorAuditado:
+            verificacao.tipo === "suprimentos"
+              ? Number(
+                  entrada.form.suprimentosValorAuditado ||
+                    entrada.form.valor ||
+                    0,
+                )
+              : undefined,
+          auditoriaStatus: entrada.form.suprimentosAuditoriaStatus,
+          auditoriaConclusao: entrada.form.suprimentosAuditoriaConclusao,
+          auditoriaCriterio: entrada.form.suprimentosCriterio?.trim(),
+          auditoriaCondicao: entrada.form.suprimentosCondicao?.trim(),
+          auditoriaCausa: entrada.form.suprimentosCausa?.trim(),
+          auditoriaEfeito: entrada.form.suprimentosEfeito?.trim(),
+          auditoriaRecomendacao: entrada.form.suprimentosRecomendacao?.trim(),
+          auditoriaSeveridade: entrada.form.suprimentosSeveridade,
+          auditoriaResponsavelAcao: entrada.form.suprimentosResponsavelAcao?.trim(),
+          auditoriaPrazoAcao: entrada.form.suprimentosPrazoAcao,
           anexos,
           usuarioId: usuarioAtual.id,
           usuarioNome: usuarioAtual.nome,
@@ -1512,10 +1654,20 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     const lancamentosAnteriores = verificacao.lancamentos ||
       (lancamentoLegado ? [lancamentoLegado] : []);
     const lancamentos = [...lancamentosAnteriores, ...novosLancamentos];
-    const total = lancamentos.reduce((soma, item) => soma + Number(item.valor || 0), 0);
+    const total = lancamentos.reduce(
+      (soma, item) => soma + (item.auditoriaTipo === "Conferência" ? 0 : Number(item.valor || 0)),
+      0,
+    );
     const ultimoFormulario = entradas.at(-1)?.form || formVerif;
+    const {
+      id: _idIgnorado,
+      tipo: _tipoIgnorado,
+      titulo: _tituloIgnorado,
+      descricao: _descricaoIgnorada,
+      ...dadosEditaveis
+    } = ultimoFormulario;
     atualizarVerificacao(distrato.id, verificacaoId, {
-      ...ultimoFormulario,
+      ...dadosEditaveis,
       status: total > 0 ? "Pendência encontrada" : ultimoFormulario.status,
       valor: total,
       anexos: [...(verificacao.anexos || []), ...novosAnexos],
@@ -1535,41 +1687,84 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     }
   };
 
-  const salvarEdicaoLancamento = () => {
+  const salvarEdicaoLancamento = async () => {
     if (!detalheLancamento) return;
     const verificacao = distrato.verificacoes.find(
       (item) => item.id === detalheLancamento.verificacaoId,
     );
     if (!verificacao) return;
-    if (!Number.isFinite(detalheLancamento.lancamento.valor)) {
+    const ehConferencia = detalheLancamento.lancamento.auditoriaTipo === "Conferência";
+    if (ehConferencia && !Number.isFinite(detalheLancamento.lancamento.valorAuditado)) {
+      window.alert("Informe um valor auditado válido.");
+      return;
+    }
+    if (!ehConferencia && !Number.isFinite(detalheLancamento.lancamento.valor)) {
       window.alert("Informe um valor válido para a dívida.");
       return;
     }
     const totalJaPago = totalPagoNaDivida(detalheLancamento.lancamento.id);
-    if (Number(detalheLancamento.lancamento.valor) + 0.009 < totalJaPago) {
+    if (!ehConferencia && Number(detalheLancamento.lancamento.valor) + 0.009 < totalJaPago) {
       window.alert(
         `O valor da dívida não pode ser menor que o total já pago (${formatarMoeda(totalJaPago)}).`,
       );
       return;
     }
-    const lancamentos = (verificacao.lancamentos || []).map((item) =>
-      item.id === detalheLancamento.lancamento.id
-        ? detalheLancamento.lancamento
-        : item,
-    );
-    const total = lancamentos.reduce(
-      (soma, item) => soma + Number(item.valor || 0),
-      0,
-    );
-    atualizarVerificacao(distrato.id, verificacao.id, {
-      lancamentos,
-      valor: total,
-      status: total > 0 ? "Pendência encontrada" : "Sem pendências",
-      observacoes: detalheLancamento.lancamento.observacoes || "",
-    });
-    setDetalheLancamento((atual) =>
-      atual ? { ...atual, editando: false } : null,
-    );
+    setSalvandoEdicaoLancamento(true);
+    try {
+      let lancamentoAtualizado = detalheLancamento.lancamento;
+      if (arquivosSubstituicao.length) {
+        const novosAnexos: Anexo[] = [];
+        for (const arquivo of arquivosSubstituicao) {
+          if (!["application/pdf", "image/jpeg", "image/png"].includes(arquivo.type) || arquivo.size > 10 * 1024 * 1024) {
+            throw new Error("Use apenas PDF, JPG ou PNG de até 10 MB cada.");
+          }
+          const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-120);
+          const caminho = `${distrato.id}/lancamentos/${crypto.randomUUID()}-${nomeSeguro}`;
+          const { error } = await supabase.storage.from("documentos-distratos").upload(caminho, arquivo, { contentType: arquivo.type, upsert: false });
+          if (error) throw error;
+          novosAnexos.push({
+            id: `doc-${crypto.randomUUID()}`,
+            nome: arquivo.name,
+            tipo: arquivo.type,
+            url: caminho,
+            tamanhoKb: Math.ceil(arquivo.size / 1024),
+            dataUpload: new Date().toISOString(),
+            usuarioId: usuarioAtual.id,
+            usuarioNome: usuarioAtual.nome,
+            categoria: verificacao.titulo,
+            descricao: lancamentoAtualizado.observacoes || `Anexo de ${verificacao.titulo}`,
+            origem: lancamentoAtualizado.auditoriaTipo ? "Auditorias" : "Documentos gerais",
+          });
+        }
+        const caminhosAntigos = (lancamentoAtualizado.anexos || [])
+          .map((anexo) => anexo.url)
+          .filter((url): url is string => Boolean(url && !/^https?:/i.test(url)));
+        lancamentoAtualizado = { ...lancamentoAtualizado, anexos: novosAnexos };
+        substituirAnexosLancamento(distrato.id, verificacao.id, lancamentoAtualizado.id, novosAnexos);
+        if (caminhosAntigos.length) void supabase.storage.from("documentos-distratos").remove(caminhosAntigos);
+      }
+      const lancamentos = (verificacao.lancamentos || []).map((item) =>
+        item.id === lancamentoAtualizado.id ? lancamentoAtualizado : item,
+      );
+      const total = lancamentos.reduce(
+        (soma, item) => soma + (item.auditoriaTipo === "Conferência" ? 0 : Number(item.valor || 0)),
+        0,
+      );
+      atualizarVerificacao(distrato.id, verificacao.id, {
+        lancamentos,
+        valor: total,
+        status: verificacao.tipo === "suprimentos"
+          ? verificacao.status
+          : total > 0 ? "Pendência encontrada" : "Sem pendências",
+        observacoes: lancamentoAtualizado.observacoes || "",
+      });
+      setArquivosSubstituicao([]);
+      setDetalheLancamento((atual) => atual ? { ...atual, lancamento: lancamentoAtualizado, editando: false } : null);
+    } catch (error) {
+      window.alert(error instanceof Error ? error.message : "Não foi possível salvar as alterações.");
+    } finally {
+      setSalvandoEdicaoLancamento(false);
+    }
   };
 
   const excluirLancamento = (
@@ -1606,13 +1801,13 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
     e.preventDefault();
     const val = valorTextoParaNumero(formPagamento.valor);
     if (val <= 0) return;
-    if (!dividaSelecionada) {
-      setErroPagamento("Selecione a dívida em aberto que recebeu este pagamento.");
+    if (!dividasSelecionadas.length) {
+      setErroPagamento("Selecione ao menos uma pendência em aberto.");
       return;
     }
-    if (val > dividaSelecionada.saldo + 0.009) {
+    if (val > saldoSelecionado + 0.009) {
       setErroPagamento(
-        `O valor informado é maior que o saldo desta dívida (${formatarMoeda(dividaSelecionada.saldo)}).`,
+        `O valor informado é maior que o saldo das pendências selecionadas (${formatarMoeda(saldoSelecionado)}).`,
       );
       return;
     }
@@ -1646,28 +1841,40 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
         });
       if (error) throw error;
 
+      const lotePagamentoId = `lote-${crypto.randomUUID()}`;
+      const resumoDividas = dividasSelecionadas.length === 1
+        ? dividasSelecionadas[0].descricao
+        : `${dividasSelecionadas.length} pendências selecionadas`;
+
       adicionarDocumento(distrato.id, {
         nome: comprovantePagamento.name,
         tipo: comprovantePagamento.type,
         tamanhoKb: Math.ceil(comprovantePagamento.size / 1024),
         categoria: "Comprovante de pagamento",
-        descricao: `${dividaSelecionada.descricao} • ${formPagamento.formaPagamento} • ${formatarMoeda(val)}`,
+        descricao: `${resumoDividas} • ${formPagamento.formaPagamento} • ${formatarMoeda(val)}`,
         origem: "Cobrança e pagamentos",
         url: caminhoComprovante,
       });
 
-      adicionarPagamento(distrato.id, {
-        valor: val,
-        data: formPagamento.data,
-        formaPagamento: formPagamento.formaPagamento,
-        categoria: formPagamento.categoria,
-        dividaId: dividaSelecionada.id,
-        dividaDescricao: dividaSelecionada.descricao,
-        verificacaoId: dividaSelecionada.verificacaoId,
-        lancamentoId: dividaSelecionada.lancamentoId,
-        observacao: formPagamento.observacao,
-        comprovanteNome: comprovantePagamento.name,
-        comprovanteUrl: caminhoComprovante,
+      let valorRestante = val;
+      dividasSelecionadas.forEach((divida) => {
+        if (valorRestante <= 0.009) return;
+        const valorAplicado = Math.min(valorRestante, divida.saldo);
+        adicionarPagamento(distrato.id, {
+          valor: valorAplicado,
+          data: formPagamento.data,
+          formaPagamento: formPagamento.formaPagamento,
+          categoria: divida.categoria,
+          dividaId: divida.id,
+          dividaDescricao: divida.descricao,
+          verificacaoId: divida.verificacaoId,
+          lancamentoId: divida.lancamentoId,
+          lotePagamentoId,
+          observacao: formPagamento.observacao,
+          comprovanteNome: comprovantePagamento.name,
+          comprovanteUrl: caminhoComprovante,
+        });
+        valorRestante -= valorAplicado;
       });
 
       setModalNovoPagamento(false);
@@ -1677,10 +1884,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
         data: new Date().toISOString().slice(0, 10),
         formaPagamento: "PIX",
         categoria: "Aluguel",
-        dividaId: "",
         observacao: "",
         comprovanteNome: "",
       });
+      setDividasSelecionadasIds([]);
+      setFiltroCategoriaPagamento("Todas");
     } catch (error) {
       setErroPagamento(
         `Não foi possível enviar o comprovante: ${error instanceof Error ? error.message : "erro desconhecido"}`,
@@ -1707,7 +1915,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
         </button>
 
         <div className="grid grid-cols-1 min-[420px]:grid-cols-2 gap-2 w-full sm:w-auto">
-          {supervisor && distrato.statusGeral === "Quitado" && (
+          {supervisor && distrato.statusGeral === "Finalizado" && (
             <button
               id="btn-reabrir-processo"
               type="button"
@@ -1718,6 +1926,24 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
               <span>Reabrir Processo</span>
             </button>
           )}
+
+          {supervisor &&
+            distrato.statusGeral !== "Finalizado" &&
+            distrato.statusFinanceiro === "Quitado" &&
+            todasVerificacoesConcluidas(distrato).concluido && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (window.confirm("Todas as verificações estão concluídas e o saldo está quitado. Deseja finalizar formalmente este distrato?")) {
+                    finalizarDistrato(distrato.id);
+                  }
+                }}
+                className="inline-flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-emerald-700 hover:bg-emerald-800 rounded-lg transition"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Finalizar distrato</span>
+              </button>
+            )}
 
           {podeImprimir && (
             <button
@@ -1832,8 +2058,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
               {formatarMoeda(dividaTotal)}
             </span>
             <span className="text-[11px] text-stone-400 mt-1 block">
-              Aluguel: {formatarMoeda(distrato.debitoAluguel)} + Auditorias de
-              Pátio
+              Lançamentos dos setores{totalExtrasAuditoria > 0 ? ` + extras da Auditoria: ${formatarMoeda(totalExtrasAuditoria)}` : " • conferências da Auditoria não alteram o saldo"}
             </span>
           </div>
 
@@ -1978,54 +2203,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 gap-3">
-            {/* Item fixo de Débito de Aluguel */}
-            <div className="card-gradient-hover verification-card bg-white p-4 rounded-xl border border-stone-200/90 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-stone-900 text-sm">
-                    Débito Inicial de Aluguel de Equipamento / Carreta
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-stone-100 text-stone-700 border border-stone-200">
-                    Contratual
-                  </span>
-                </div>
-                <p className="text-xs text-stone-500 mt-1">
-                  Valor apurado no momento do pedido de encerramento pelo setor
-                  de Logística.
-                </p>
-              </div>
-              <div className="flex items-center gap-3 shrink-0">
-                <div className="text-right">
-                <span className="text-xs text-stone-400 block font-medium">
-                  Valor Contratual
-                </span>
-                <span className="text-base font-bold font-mono text-stone-900">
-                  {formatarMoeda(distrato.debitoAluguel)}
-                </span>
-                {distrato.debitoAluguel > 0 && (() => {
-                  const situacao = situacaoDivida("aluguel-contratual", distrato.debitoAluguel);
-                  return (
-                    <span className={`mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${situacao.classe}`}>
-                      {situacao.texto}
-                    </span>
-                  );
-                })()}
-                </div>
-                {podeEditarCadastro && (
-                  <button
-                    type="button"
-                    onClick={abrirEdicaoCadastro}
-                    className="p-2 rounded-lg border border-stone-300 text-[#7e1d2c] hover:bg-[#f8ecee] transition"
-                    title="Editar débito contratual — Logística"
-                    aria-label="Editar débito inicial de aluguel"
-                  >
-                    <Pencil className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* As 11 Verificações */}
+            {/* Verificações departamentais */}
             {verificacoesVisiveis.map((v, index) => {
               const estaEditando = editandoVerifId === v.id;
               const valorItem =
@@ -2034,6 +2212,17 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                     ? v.valor
                     : (v.cameraValor || 0) + (v.rastreadorValor || 0)
                   : v.valor;
+              const registrosAuditoria = v.tipo === "suprimentos"
+                ? v.lancamentos || []
+                : [];
+              const auditoriaConcluida = registrosAuditoria.length > 0 &&
+                registrosAuditoria.every((item) => item.auditoriaStatus === "Concluída");
+              const recolhida = verificacoesRecolhidas.has(v.id);
+              const lancamentosFinanceiros = (v.lancamentos || []).filter(
+                (item) => item.auditoriaTipo !== "Conferência" && Number(item.valor) > 0 && item.responsavelCusto !== "Transpanorama",
+              );
+              const categoriaQuitada = lancamentosFinanceiros.length > 0 &&
+                lancamentosFinanceiros.every((item) => situacaoDivida(item.id, Number(item.valor)).texto === "Quitado");
 
               return (
                 <div
@@ -2070,10 +2259,23 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
 
                     <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
                       <div className="text-right">
-                        <StatusBadge status={v.status} size="sm" />
-                        <div className="text-xs font-mono font-bold text-stone-800 mt-1">
-                          {formatarMoeda(valorItem)}
-                        </div>
+                        {v.tipo === "suprimentos" ? (
+                          <>
+                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-bold ${auditoriaConcluida ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+                              {auditoriaConcluida ? "Auditoria concluída" : "Auditoria em andamento"}
+                            </span>
+                            <div className="text-[11px] font-semibold text-stone-500 mt-1">
+                              {registrosAuditoria.length} registro(s) de conferência
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <StatusBadge status={categoriaQuitada ? "Quitado" : v.status} size="sm" />
+                            <div className="text-xs font-mono font-bold text-stone-800 mt-1">
+                              {formatarMoeda(valorItem)}
+                            </div>
+                          </>
+                        )}
                       </div>
 
                       {!estaEditando && podeEditarVerificacao(v.tipo) && (
@@ -2085,16 +2287,33 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                           + Incluir
                         </button>
                       )}
+                      {!estaEditando && (
+                        <button
+                          type="button"
+                          onClick={() => setVerificacoesRecolhidas((atuais) => {
+                            const proximas = new Set(atuais);
+                            proximas.has(v.id) ? proximas.delete(v.id) : proximas.add(v.id);
+                            return proximas;
+                          })}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-stone-300 hover:bg-stone-50 text-stone-600 text-xs font-semibold"
+                          title={recolhida ? "Mostrar informações" : "Diminuir visualização"}
+                        >
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${recolhida ? "-rotate-90" : ""}`} />
+                          <span className="hidden lg:inline">{recolhida ? "Mostrar" : "Recolher"}</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Detalhes / Observações quando não está editando */}
-                  {!estaEditando && (
+                  {!estaEditando && !recolhida && (
                     <div className="mt-3 pt-3 border-t border-stone-100 space-y-3 text-[11px] text-stone-500">
                       {!!v.lancamentos?.length && (
                         <div className="rounded-lg border border-stone-200 bg-stone-50/70 overflow-hidden">
                           <div className="px-3 py-2 font-bold text-stone-700 bg-stone-100/80">
-                            {v.lancamentos.length} lançamento(s) registrado(s)
+                            {v.tipo === "suprimentos"
+                              ? `${v.lancamentos.length} registro(s) de auditoria`
+                              : `${v.lancamentos.length} lançamento(s) registrado(s)`}
                           </div>
                           <div className="divide-y divide-stone-200">
                             {v.lancamentos.map((lancamento) => {
@@ -2104,12 +2323,34 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                                 <div className="min-w-0">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <strong className="text-stone-800">
-                                      {lancamento.observacoes || `Lançamento de ${v.titulo}`}
+                                      {v.tipo === "suprimentos"
+                                        ? lancamento.dividaAuditadaDescricao || lancamento.auditoriaCondicao || "Nova pendência identificada"
+                                        : lancamento.observacoes || `Lançamento de ${v.titulo}`}
                                     </strong>
-                                    <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${situacao.classe}`}>
-                                      {situacao.texto}
-                                    </span>
+                                    {v.tipo === "suprimentos" ? (
+                                      <>
+                                        <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${lancamento.auditoriaConclusao === "Conforme" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
+                                          {lancamento.auditoriaConclusao || "Em análise"}
+                                        </span>
+                                        {lancamento.auditoriaSeveridade && lancamento.auditoriaConclusao !== "Conforme" && (
+                                          <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-bold text-amber-800">
+                                            Criticidade {lancamento.auditoriaSeveridade.toLowerCase()}
+                                          </span>
+                                        )}
+                                      </>
+                                    ) : (
+                                      <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-bold ${situacao.classe}`}>
+                                        {situacao.texto}
+                                      </span>
+                                    )}
                                   </div>
+                                  {v.tipo === "suprimentos" && (
+                                    <span className="mt-1 block text-stone-600">
+                                      {lancamento.auditoriaTipo === "Nova pendência"
+                                        ? `Pendência extra da Auditoria: ${formatarMoeda(lancamento.valor)}`
+                                        : `Lançado: ${formatarMoeda(lancamento.valorOriginalAuditado)} • Auditado: ${formatarMoeda(lancamento.valorAuditado)} • Diferença: ${formatarMoeda(Number(lancamento.valorAuditado || 0) - Number(lancamento.valorOriginalAuditado || 0))}`}
+                                    </span>
+                                  )}
                                   {lancamento.numeroDocumento && (
                                     <span className="mt-1 block">Documento/NF: {lancamento.numeroDocumento}</span>
                                   )}
@@ -2121,17 +2362,19 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                                 </div>
                                 <div className="shrink-0 flex items-center gap-2">
                                   <span className="font-semibold text-stone-700">
-                                    {formatarData(lancamento.data)} • {formatarMoeda(lancamento.valor)}
+                                    {formatarData(lancamento.data)}
+                                    {v.tipo !== "suprimentos" && <> • {formatarMoeda(lancamento.valor)}</>}
                                   </span>
                                   <button
                                     type="button"
-                                    onClick={() =>
+                                    onClick={() => {
+                                      setArquivosSubstituicao([]);
                                       setDetalheLancamento({
                                         verificacaoId: v.id,
                                         lancamento: { ...lancamento },
                                         editando: false,
-                                      })
-                                    }
+                                      });
+                                    }}
                                     className="p-1.5 rounded-md text-[#7e1d2c] hover:bg-[#f8ecee]"
                                     title="Visualizar detalhes"
                                   >
@@ -2188,7 +2431,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                         {/* Status da Verificação */}
-                        <div>
+                        {v.tipo !== "suprimentos" && <div>
                           <label className="block text-[11px] font-bold text-stone-700 mb-1">
                             Resultado da Análise
                           </label>
@@ -2209,14 +2452,32 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                               Pendência encontrada (Com Débito)
                             </option>
                           </select>
-                        </div>
+                        </div>}
 
                         {/* Valor apurado (ou campos separados se for camera_rastreador) */}
                         {v.tipo === "camera_rastreador" ? (
                           <>
                             <div>
                               <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                                Custo Câmera de Cabine (R$)
+                                Quantidade de câmeras
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={formVerif.cameraQuantidade ?? ""}
+                                onChange={(e) =>
+                                  setFormVerif((prev) => ({
+                                    ...prev,
+                                    cameraQuantidade: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)),
+                                  }))
+                                }
+                                className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg bg-white outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                                Valor unitário da câmera (R$)
                               </label>
                               <input
                                 type="number"
@@ -2233,7 +2494,25 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                             </div>
                             <div>
                               <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                                Custo Rastreador / Antena (R$)
+                                Quantidade de rastreadores
+                              </label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={formVerif.rastreadorQuantidade ?? ""}
+                                onChange={(e) =>
+                                  setFormVerif((prev) => ({
+                                    ...prev,
+                                    rastreadorQuantidade: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)),
+                                  }))
+                                }
+                                className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg bg-white outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                                Valor unitário do rastreador / antena (R$)
                               </label>
                               <input
                                 type="number"
@@ -2255,37 +2534,61 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                               Situação da desvinculação
                             </label>
                             <select
-                              value={formVerif.anttStatus || "Em observação"}
+                            value={formVerif.anttStatus || "Em andamento"}
                               onChange={(e) =>
                                 setFormVerif((prev) => ({
                                   ...prev,
                                   anttStatus: e.target.value as
-                                    "Em observação" | "Finalizado",
+                                    "Vinculado" | "Em andamento" | "Desvinculado",
                                   valor: 0,
                                 }))
                               }
                               className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg bg-white outline-none"
                             >
-                              <option value="Em observação">
-                                Em observação
-                              </option>
-                              <option value="Finalizado">Finalizado</option>
+                              <option value="Vinculado">Vinculado</option>
+                              <option value="Em andamento">Em andamento</option>
+                              <option value="Desvinculado">Desvinculado</option>
                             </select>
+                          </div>
+                        ) : v.tipo === "suprimentos" ? (
+                          <div>
+                            <label className="block text-[11px] font-bold text-stone-700 mb-1">
+                              {formVerif.suprimentosTipoLancamento === "Nova pendência"
+                                ? "Valor da nova pendência (R$)"
+                                : "Valor verdadeiro conferido (R$)"}
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={formVerif.suprimentosTipoLancamento === "Nova pendência"
+                                ? formVerif.valor ?? ""
+                                : formVerif.suprimentosValorAuditado ?? ""}
+                              onChange={(e) => setFormVerif((prev) => ({
+                                ...prev,
+                                ...(prev.suprimentosTipoLancamento === "Nova pendência"
+                                  ? { valor: e.target.value === "" ? undefined : Number(e.target.value) }
+                                  : { suprimentosValorAuditado: e.target.value === "" ? undefined : Number(e.target.value) }),
+                              }))}
+                              className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-stone-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#7e1d2c]/20"
+                            />
                           </div>
                         ) : (
                           <>
                             <div>
                               <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                                Valor do Débito / Avaria (R$)
+                                {v.tipo === "pneus" ? "Valor unitário do pneu (R$)" : "Valor da dívida (R$)"}
                               </label>
                               <input
                                 type="number"
                                 step="0.01"
-                                value={formVerif.valor ?? ""}
+                                value={v.tipo === "pneus" ? formVerif.valorUnitario ?? "" : formVerif.valor ?? ""}
                                 onChange={(e) =>
                                   setFormVerif((prev) => ({
                                     ...prev,
-                                    valor: e.target.value === "" ? undefined : Number(e.target.value),
+                                    ...(v.tipo === "pneus"
+                                      ? { valorUnitario: e.target.value === "" ? undefined : Number(e.target.value) }
+                                      : { valor: e.target.value === "" ? undefined : Number(e.target.value) }),
                                   }))
                                 }
                                 className="w-full px-3 py-1.5 text-xs font-mono font-bold border border-stone-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#7e1d2c]/20"
@@ -2304,6 +2607,9 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                                   onChange={(e) =>
                                     setFormVerif((prev) => ({
                                       ...prev,
+                                      quantidade: e.target.value === ""
+                                        ? undefined
+                                        : Math.max(0, parseInt(e.target.value, 10)),
                                       pneusQuantidade: e.target.value === ""
                                         ? undefined
                                         : Math.max(0, parseInt(e.target.value, 10)),
@@ -2316,6 +2622,28 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                           </>
                         )}
                       </div>
+
+                      {v.tipo !== "antt" && v.tipo !== "suprimentos" && (
+                        <label className="block text-[11px] font-bold text-stone-700">
+                          Responsável pelo custo
+                          <select
+                            value={formVerif.responsavelCusto || "Agregado"}
+                            onChange={(event) =>
+                              setFormVerif((prev) => ({
+                                ...prev,
+                                responsavelCusto: event.target.value as "Agregado" | "Transpanorama",
+                              }))
+                            }
+                            className="mt-1 w-full sm:max-w-sm px-3 py-2 border border-stone-300 rounded-lg bg-white font-normal"
+                          >
+                            <option value="Agregado">Agregado</option>
+                            <option value="Transpanorama">Transpanorama</option>
+                          </select>
+                          <span className="mt-1 block font-normal text-stone-500">
+                            Valores da Transpanorama ficam registrados, mas não compõem a dívida do agregado.
+                          </span>
+                        </label>
+                      )}
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {v.tipo === "manutencao" && (
@@ -2526,6 +2854,49 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                         {v.tipo === "suprimentos" && (
                           <>
                             <label className="text-[11px] font-bold text-stone-700">
+                              Tipo de registro da auditoria
+                              <select
+                                value={formVerif.suprimentosTipoLancamento || "Conferência"}
+                                onChange={(e) => setFormVerif((prev) => ({
+                                  ...prev,
+                                  suprimentosTipoLancamento: e.target.value as "Conferência" | "Nova pendência",
+                                  suprimentosDividaOrigemId: "",
+                                  valor: 0,
+                                  suprimentosValorAuditado: 0,
+                                  suprimentosAuditoriaConclusao:
+                                    e.target.value === "Nova pendência"
+                                      ? "Nova pendência confirmada"
+                                      : "Conforme",
+                                }))}
+                                className="mt-1 w-full px-3 py-2 border rounded-lg bg-white font-normal"
+                              >
+                                <option value="Conferência">Conferir valor já lançado</option>
+                                <option value="Nova pendência">Nova pendência não registrada</option>
+                              </select>
+                            </label>
+                            {formVerif.suprimentosTipoLancamento !== "Nova pendência" && (
+                              <label className="text-[11px] font-bold text-stone-700 sm:col-span-2">
+                                Pendência original conferida
+                                <select
+                                  value={formVerif.suprimentosDividaOrigemId || ""}
+                                  onChange={(e) => setFormVerif((prev) => ({
+                                    ...prev,
+                                    suprimentosDividaOrigemId: e.target.value,
+                                  }))}
+                                  className="mt-1 w-full px-3 py-2 border rounded-lg bg-white font-normal"
+                                >
+                                  <option value="">Selecione o lançamento original</option>
+                                  {dividasParaPagamento
+                                    .filter((divida) => divida.verificacaoId !== v.id)
+                                    .map((divida) => (
+                                      <option key={divida.id} value={divida.id}>
+                                        {divida.descricao} — lançado {formatarMoeda(divida.valor)}
+                                      </option>
+                                    ))}
+                                </select>
+                              </label>
+                            )}
+                            <label className="text-[11px] font-bold text-stone-700">
                               Data da auditoria
                               <input
                                 type="date"
@@ -2540,33 +2911,125 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                               />
                             </label>
                             <label className="text-[11px] font-bold text-stone-700">
-                              Resultado da fiscalização
+                              Etapa da auditoria
                               <select
-                                value={
-                                  formVerif.suprimentosResultado || "Pendente"
-                                }
-                                onChange={(e) =>
-                                  setFormVerif((prev) => ({
-                                    ...prev,
-                                    suprimentosResultado: e.target
-                                      .value as Verificacao["suprimentosResultado"],
-                                  }))
-                                }
+                                value={formVerif.suprimentosAuditoriaStatus || "Em análise"}
+                                onChange={(e) => setFormVerif((prev) => ({
+                                  ...prev,
+                                  suprimentosAuditoriaStatus: e.target.value as "Em análise" | "Concluída",
+                                }))}
                                 className="mt-1 w-full px-3 py-2 border rounded-lg bg-white font-normal"
                               >
-                                <option>Pendente</option>
-                                <option>Conforme</option>
-                                <option>Inconforme</option>
+                                <option value="Em análise">Em análise</option>
+                                <option value="Concluída">Concluída</option>
                               </select>
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700">
+                              Conclusão
+                              <select
+                                value={formVerif.suprimentosAuditoriaConclusao || "Conforme"}
+                                onChange={(e) => setFormVerif((prev) => ({
+                                  ...prev,
+                                  suprimentosAuditoriaConclusao: e.target.value as Verificacao["suprimentosAuditoriaConclusao"],
+                                }))}
+                                disabled={formVerif.suprimentosTipoLancamento === "Nova pendência"}
+                                className="mt-1 w-full px-3 py-2 border rounded-lg bg-white font-normal disabled:bg-stone-100"
+                              >
+                                <option value="Conforme">Conforme</option>
+                                <option value="Divergência">Divergência encontrada</option>
+                                <option value="Nova pendência confirmada">Nova pendência confirmada</option>
+                              </select>
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700">
+                              Criticidade
+                              <select
+                                value={formVerif.suprimentosSeveridade || "Média"}
+                                onChange={(e) => setFormVerif((prev) => ({
+                                  ...prev,
+                                  suprimentosSeveridade: e.target.value as "Baixa" | "Média" | "Alta",
+                                }))}
+                                className="mt-1 w-full px-3 py-2 border rounded-lg bg-white font-normal"
+                              >
+                                <option>Baixa</option>
+                                <option>Média</option>
+                                <option>Alta</option>
+                              </select>
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700 sm:col-span-2">
+                              Critério — o que deveria estar registrado
+                              <textarea
+                                rows={2}
+                                value={formVerif.suprimentosCriterio || ""}
+                                onChange={(e) => setFormVerif((prev) => ({ ...prev, suprimentosCriterio: e.target.value }))}
+                                placeholder="Ex.: valor previsto em contrato, nota fiscal ou política interna"
+                                className="mt-1 w-full px-3 py-2 border rounded-lg font-normal resize-y"
+                              />
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700 sm:col-span-2">
+                              Situação encontrada — o que foi comprovado
+                              <textarea
+                                rows={2}
+                                value={formVerif.suprimentosCondicao || ""}
+                                onChange={(e) => setFormVerif((prev) => ({ ...prev, suprimentosCondicao: e.target.value }))}
+                                placeholder="Descreva objetivamente a divergência ou a confirmação encontrada"
+                                className="mt-1 w-full px-3 py-2 border rounded-lg font-normal resize-y"
+                              />
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700">
+                              Causa provável
+                              <textarea
+                                rows={2}
+                                value={formVerif.suprimentosCausa || ""}
+                                onChange={(e) => setFormVerif((prev) => ({ ...prev, suprimentosCausa: e.target.value }))}
+                                placeholder="Por que ocorreu?"
+                                className="mt-1 w-full px-3 py-2 border rounded-lg font-normal resize-y"
+                              />
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700">
+                              Efeito / risco
+                              <textarea
+                                rows={2}
+                                value={formVerif.suprimentosEfeito || ""}
+                                onChange={(e) => setFormVerif((prev) => ({ ...prev, suprimentosEfeito: e.target.value }))}
+                                placeholder="Impacto financeiro ou operacional"
+                                className="mt-1 w-full px-3 py-2 border rounded-lg font-normal resize-y"
+                              />
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700 sm:col-span-2">
+                              Recomendação / ação corretiva
+                              <textarea
+                                rows={2}
+                                value={formVerif.suprimentosRecomendacao || ""}
+                                onChange={(e) => setFormVerif((prev) => ({ ...prev, suprimentosRecomendacao: e.target.value }))}
+                                placeholder="O que deve ser corrigido ou acompanhado"
+                                className="mt-1 w-full px-3 py-2 border rounded-lg font-normal resize-y"
+                              />
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700">
+                              Responsável pela ação
+                              <input
+                                value={formVerif.suprimentosResponsavelAcao || ""}
+                                onChange={(e) => setFormVerif((prev) => ({ ...prev, suprimentosResponsavelAcao: e.target.value }))}
+                                className="mt-1 w-full px-3 py-2 border rounded-lg font-normal"
+                              />
+                            </label>
+                            <label className="text-[11px] font-bold text-stone-700">
+                              Prazo da ação
+                              <input
+                                type="date"
+                                value={formVerif.suprimentosPrazoAcao || ""}
+                                onChange={(e) => setFormVerif((prev) => ({ ...prev, suprimentosPrazoAcao: e.target.value }))}
+                                className="mt-1 w-full px-3 py-2 border rounded-lg font-normal"
+                              />
                             </label>
                           </>
                         )}
                       </div>
 
-                      {/* Observações da Auditoria */}
-                      <div>
+                      {/* Descrição do lançamento */}
+                      {v.tipo !== "suprimentos" && <div>
                         <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                          Parecer Técnico / Observações da Auditoria
+                          Descrição / Observações
                         </label>
                         <input
                           type="text"
@@ -2580,11 +3043,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                           placeholder="Descreva detalhes de notas fiscais, fotos de avaria, laudo mecânico ou motivo de isenção..."
                           className="w-full px-3 py-1.5 text-xs border border-stone-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#7e1d2c]/20"
                         />
-                      </div>
+                      </div>}
 
                       <div className="rounded-lg border border-dashed border-[#b98a43] bg-white p-3">
                         <label className="block text-[11px] font-bold text-stone-700 mb-1">
-                          Anexos deste lançamento
+                          {v.tipo === "suprimentos" ? "Evidências da auditoria" : "Anexos deste lançamento"}
                         </label>
                         <input
                           key={lancamentosPendentes.length}
@@ -2597,7 +3060,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                           className="block w-full text-xs file:mr-3 file:rounded-md file:border-0 file:bg-[#f8ecee] file:px-3 file:py-2 file:font-bold file:text-[#7e1d2c]"
                         />
                         <p className="mt-1 text-[10px] text-stone-500">
-                          PDF, JPG ou PNG, até 10 MB cada. Os arquivos também aparecerão em Documentos &amp; Comprovantes.
+                          PDF, JPG ou PNG, até 10 MB cada. {v.tipo === "suprimentos" ? "Para concluir a auditoria, anexe ao menos uma evidência." : "Os arquivos também aparecerão em Documentos & Comprovantes."}
                         </p>
                         {!!arquivosAuditoria.length && (
                           <p className="mt-1 text-[10px] font-semibold text-emerald-700">
@@ -2750,7 +3213,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
 
                       {/* Botões de Ação */}
                       <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
-                        <button
+                        {v.tipo !== "suprimentos" && <button
                           type="button"
                           onClick={() => handleAdicionarOutroValor(v)}
                           disabled={salvandoAuditoria}
@@ -2758,7 +3221,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                         >
                           <Plus className="w-3.5 h-3.5" />
                           Adicionar outro valor
-                        </button>
+                        </button>}
                         <div className="flex items-center gap-2">
                         <button
                           type="button"
@@ -2778,7 +3241,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                           className="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-bold text-white bg-[#7e1d2c] hover:bg-[#681623] rounded-lg shadow-2xs transition cursor-pointer"
                         >
                           <Save className="w-3.5 h-3.5 text-[#dfc28d]" />
-                          <span>{salvandoAuditoria ? "Salvando…" : "Salvar lançamento(s)"}</span>
+                          <span>{salvandoAuditoria ? "Salvando…" : v.tipo === "suprimentos" ? "Salvar auditoria" : "Salvar lançamento(s)"}</span>
                         </button>
                         </div>
                       </div>
@@ -2824,14 +3287,13 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  const primeiraDivida = dividasEmAberto[0];
                   setErroPagamento("");
                   setComprovantePagamento(null);
+                  setDividasSelecionadasIds([]);
+                  setFiltroCategoriaPagamento("Todas");
                   setFormPagamento((prev) => ({
                     ...prev,
                     valor: "",
-                    categoria: primeiraDivida?.categoria || "Outros",
-                    dividaId: primeiraDivida?.id || "",
                     observacao: "",
                   }));
                   setModalNovoPagamento(true);
@@ -3384,7 +3846,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
       {/* MODAL: NOVO PAGAMENTO */}
       {modalNovoPagamento && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-stone-950/70 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-md rounded-2xl shadow-2xl border border-stone-200 overflow-hidden">
+          <div className="bg-white w-full max-w-xl max-h-[92vh] rounded-2xl shadow-2xl border border-stone-200 overflow-hidden flex flex-col">
             <div className="px-6 py-4 bg-[#26070a] border-b border-[#a87f3b]/30 text-white flex items-center justify-between">
               <h3 className="text-sm font-bold text-stone-100">
                 Registrar Pagamento / Quitação
@@ -3398,7 +3860,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleSalvarPagamento} className="p-6 space-y-4">
+            <form onSubmit={handleSalvarPagamento} className="p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
                   Valor Pago (R$) <span className="text-rose-500">*</span>
@@ -3425,21 +3887,16 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Categoria do pagamento
+                  Filtrar pendências por categoria
                 </label>
                 <select
-                  value={formPagamento.categoria}
-                  onChange={(e) =>
-                    setFormPagamento((prev) => ({
-                      ...prev,
-                      categoria: e.target.value as NonNullable<
-                        Pagamento["categoria"]
-                      >,
-                      dividaId: "",
-                    }))
-                  }
+                  value={filtroCategoriaPagamento}
+                  onChange={(e) => setFiltroCategoriaPagamento(
+                    e.target.value as NonNullable<Pagamento["categoria"]> | "Todas",
+                  )}
                   className="w-full px-3 py-2 text-xs border border-stone-300 rounded-lg bg-white outline-none"
                 >
+                  <option value="Todas">Todas as categorias</option>
                   <option value="Aluguel">Aluguel</option>
                   <option value="Abastecimento">Abastecimento</option>
                   <option value="Multa">Multa</option>
@@ -3455,41 +3912,64 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
 
               <div>
                 <label className="block text-xs font-bold text-stone-700 mb-1">
-                  Dívida que está sendo paga <span className="text-rose-500">*</span>
+                  Pendências que estão sendo pagas <span className="text-rose-500">*</span>
                 </label>
-                <select
-                  required
-                  value={formPagamento.dividaId}
-                  onChange={(e) => {
-                    const divida = dividasEmAberto.find((item) => item.id === e.target.value);
-                    setFormPagamento((prev) => ({
-                      ...prev,
-                      dividaId: e.target.value,
-                      categoria: divida?.categoria || prev.categoria,
-                    }));
-                    setErroPagamento("");
-                  }}
-                  className="w-full px-3 py-2.5 text-xs border border-stone-300 rounded-lg bg-white outline-none focus:ring-2 focus:ring-[#7e1d2c]/20"
-                >
-                  <option value="">Selecione uma dívida em aberto</option>
-                  {dividasEmAberto
-                    .filter((divida) => divida.categoria === formPagamento.categoria)
-                    .map((divida) => (
-                      <option key={divida.id} value={divida.id}>
-                        {divida.descricao} — saldo {formatarMoeda(divida.saldo)}
-                      </option>
+                <div className="rounded-xl border border-stone-200 overflow-hidden">
+                  <div className="flex items-center justify-between gap-3 px-3 py-2.5 bg-stone-50 border-b border-stone-200">
+                    <label className="inline-flex items-center gap-2 text-xs font-bold text-stone-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={dividasFiltradasPagamento.length > 0 && dividasFiltradasPagamento.every((divida) => dividasSelecionadasIds.includes(divida.id))}
+                        onChange={(e) => {
+                          const idsVisiveis = dividasFiltradasPagamento.map((divida) => divida.id);
+                          setDividasSelecionadasIds((atuais) => e.target.checked
+                            ? Array.from(new Set([...atuais, ...idsVisiveis]))
+                            : atuais.filter((id) => !idsVisiveis.includes(id)));
+                          setErroPagamento("");
+                        }}
+                        className="h-4 w-4 accent-[#7e1d2c]"
+                      />
+                      Selecionar todas
+                    </label>
+                    <span className="text-[11px] text-stone-500">
+                      {dividasSelecionadas.length} selecionada(s)
+                    </span>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto divide-y divide-stone-100">
+                    {dividasFiltradasPagamento.map((divida) => (
+                      <label key={divida.id} className="flex items-start gap-3 px-3 py-3 hover:bg-amber-50/50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={dividasSelecionadasIds.includes(divida.id)}
+                          onChange={(e) => {
+                            setDividasSelecionadasIds((atuais) => e.target.checked
+                              ? [...atuais, divida.id]
+                              : atuais.filter((id) => id !== divida.id));
+                            setErroPagamento("");
+                          }}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-[#7e1d2c]"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-xs font-semibold text-stone-800">{divida.descricao}</span>
+                          <span className="block mt-0.5 text-[11px] text-stone-500">{divida.categoria} • saldo {formatarMoeda(divida.saldo)}</span>
+                        </span>
+                      </label>
                     ))}
-                </select>
-                {dividaSelecionada && (
-                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-900">
-                    Valor original: <strong>{formatarMoeda(dividaSelecionada.valor)}</strong>
-                    {dividaSelecionada.pago > 0 && (
-                      <> • Já pago: <strong>{formatarMoeda(dividaSelecionada.pago)}</strong></>
-                    )}
-                    <> • Saldo: <strong>{formatarMoeda(dividaSelecionada.saldo)}</strong></>
+                  </div>
+                </div>
+                {dividasSelecionadas.length > 0 && (
+                  <div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-900">
+                    <span>Total selecionado: <strong>{formatarMoeda(saldoSelecionado)}</strong></span>
+                    <button
+                      type="button"
+                      onClick={() => setFormPagamento((prev) => ({ ...prev, valor: saldoSelecionado.toFixed(2).replace(".", ",") }))}
+                      className="font-bold underline underline-offset-2"
+                    >
+                      Pagar tudo
+                    </button>
                   </div>
                 )}
-                {!dividasEmAberto.some((divida) => divida.categoria === formPagamento.categoria) && (
+                {!dividasFiltradasPagamento.length && (
                   <p className="mt-1 text-[11px] text-stone-500">
                     Não existem dívidas em aberto nesta categoria.
                   </p>
@@ -3639,8 +4119,8 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
           <div className="bg-white w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-stone-200">
             <div className="sticky top-0 px-6 py-4 bg-[#26070a] text-white flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold">Detalhes do lançamento</h3>
-                <p className="text-[11px] text-stone-300 mt-0.5">Informações da dívida e documentos vinculados</p>
+                <h3 className="text-sm font-bold">{detalheLancamento.lancamento.auditoriaTipo ? "Detalhes da auditoria" : "Detalhes do lançamento"}</h3>
+                <p className="text-[11px] text-stone-300 mt-0.5">{detalheLancamento.lancamento.auditoriaTipo ? "Achado, evidências e plano de ação" : "Informações da dívida e documentos vinculados"}</p>
               </div>
               <button type="button" onClick={() => setDetalheLancamento(null)} aria-label="Fechar">
                 <X className="w-5 h-5" />
@@ -3663,23 +4143,30 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                   />
                 </label>
                 <label className="font-bold text-stone-700">
-                  Valor da dívida
+                  {detalheLancamento.lancamento.auditoriaTipo === "Conferência" ? "Valor auditado" : "Valor da dívida"}
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     disabled={!detalheLancamento.editando}
-                    value={Number.isNaN(detalheLancamento.lancamento.valor) ? "" : detalheLancamento.lancamento.valor}
+                    value={detalheLancamento.lancamento.auditoriaTipo === "Conferência"
+                      ? detalheLancamento.lancamento.valorAuditado ?? ""
+                      : Number.isNaN(detalheLancamento.lancamento.valor) ? "" : detalheLancamento.lancamento.valor}
                     onChange={(event) =>
                       setDetalheLancamento((atual) =>
-                        atual ? { ...atual, lancamento: { ...atual.lancamento, valor: event.target.value === "" ? Number.NaN : Number(event.target.value) } } : null,
+                        atual ? { ...atual, lancamento: {
+                          ...atual.lancamento,
+                          ...(atual.lancamento.auditoriaTipo === "Conferência"
+                            ? { valorAuditado: event.target.value === "" ? undefined : Number(event.target.value) }
+                            : { valor: event.target.value === "" ? Number.NaN : Number(event.target.value) }),
+                        } } : null,
                       )
                     }
                     className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg bg-white disabled:bg-stone-50 font-mono font-normal"
                   />
                 </label>
               </div>
-              <label className="block font-bold text-stone-700">
+              {!detalheLancamento.lancamento.auditoriaTipo && <label className="block font-bold text-stone-700">
                 Documento / Nota fiscal
                 <input
                   disabled={!detalheLancamento.editando}
@@ -3691,8 +4178,8 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                   }
                   className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg bg-white disabled:bg-stone-50 font-normal"
                 />
-              </label>
-              <label className="block font-bold text-stone-700">
+              </label>}
+              {!detalheLancamento.lancamento.auditoriaTipo && <label className="block font-bold text-stone-700">
                 Observações
                 <textarea
                   disabled={!detalheLancamento.editando}
@@ -3705,7 +4192,47 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                   rows={3}
                   className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg bg-white disabled:bg-stone-50 font-normal resize-none"
                 />
-              </label>
+              </label>}
+              {detalheLancamento.lancamento.auditoriaTipo && (
+                <div className="space-y-3 rounded-xl border border-amber-200 bg-amber-50/40 p-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <label className="font-bold text-stone-700">Conclusão
+                      <select disabled={!detalheLancamento.editando} value={detalheLancamento.lancamento.auditoriaConclusao || "Conforme"} onChange={(event) => setDetalheLancamento((atual) => atual ? { ...atual, lancamento: { ...atual.lancamento, auditoriaConclusao: event.target.value as LancamentoVerificacao["auditoriaConclusao"] } } : null)} className="mt-1 w-full px-3 py-2 border rounded-lg bg-white disabled:bg-stone-50 font-normal">
+                        <option>Conforme</option><option>Divergência</option><option>Nova pendência confirmada</option>
+                      </select>
+                    </label>
+                    <label className="font-bold text-stone-700">Criticidade
+                      <select disabled={!detalheLancamento.editando} value={detalheLancamento.lancamento.auditoriaSeveridade || "Média"} onChange={(event) => setDetalheLancamento((atual) => atual ? { ...atual, lancamento: { ...atual.lancamento, auditoriaSeveridade: event.target.value as LancamentoVerificacao["auditoriaSeveridade"] } } : null)} className="mt-1 w-full px-3 py-2 border rounded-lg bg-white disabled:bg-stone-50 font-normal">
+                        <option>Baixa</option><option>Média</option><option>Alta</option>
+                      </select>
+                    </label>
+                    <label className="font-bold text-stone-700">Etapa
+                      <select disabled={!detalheLancamento.editando} value={detalheLancamento.lancamento.auditoriaStatus || "Em análise"} onChange={(event) => setDetalheLancamento((atual) => atual ? { ...atual, lancamento: { ...atual.lancamento, auditoriaStatus: event.target.value as LancamentoVerificacao["auditoriaStatus"] } } : null)} className="mt-1 w-full px-3 py-2 border rounded-lg bg-white disabled:bg-stone-50 font-normal">
+                        <option>Em análise</option><option>Concluída</option>
+                      </select>
+                    </label>
+                  </div>
+                  {([
+                    ["Critério", "auditoriaCriterio"],
+                    ["Situação encontrada", "auditoriaCondicao"],
+                    ["Causa", "auditoriaCausa"],
+                    ["Efeito / risco", "auditoriaEfeito"],
+                    ["Recomendação", "auditoriaRecomendacao"],
+                  ] as const).map(([rotulo, campo]) => (
+                    <label key={campo} className="block font-bold text-stone-700">{rotulo}
+                      <textarea disabled={!detalheLancamento.editando} rows={2} value={detalheLancamento.lancamento[campo] || ""} onChange={(event) => setDetalheLancamento((atual) => atual ? { ...atual, lancamento: { ...atual.lancamento, [campo]: event.target.value } } : null)} className="mt-1 w-full px-3 py-2 border rounded-lg bg-white disabled:bg-stone-50 font-normal resize-y" />
+                    </label>
+                  ))}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <label className="font-bold text-stone-700">Responsável pela ação
+                      <input disabled={!detalheLancamento.editando} value={detalheLancamento.lancamento.auditoriaResponsavelAcao || ""} onChange={(event) => setDetalheLancamento((atual) => atual ? { ...atual, lancamento: { ...atual.lancamento, auditoriaResponsavelAcao: event.target.value } } : null)} className="mt-1 w-full px-3 py-2 border rounded-lg bg-white disabled:bg-stone-50 font-normal" />
+                    </label>
+                    <label className="font-bold text-stone-700">Prazo da ação
+                      <input type="date" disabled={!detalheLancamento.editando} value={detalheLancamento.lancamento.auditoriaPrazoAcao || ""} onChange={(event) => setDetalheLancamento((atual) => atual ? { ...atual, lancamento: { ...atual.lancamento, auditoriaPrazoAcao: event.target.value } } : null)} className="mt-1 w-full px-3 py-2 border rounded-lg bg-white disabled:bg-stone-50 font-normal" />
+                    </label>
+                  </div>
+                </div>
+              )}
               <div>
                 <p className="font-bold text-stone-700 mb-2">Anexos</p>
                 {(detalheLancamento.lancamento.anexos || []).length ? (
@@ -3727,18 +4254,38 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 ) : (
                   <p className="rounded-lg bg-stone-50 border border-stone-200 p-3 text-stone-500">Nenhum anexo vinculado a este lançamento.</p>
                 )}
+                {detalheLancamento.editando && (
+                  <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-[#c59b4c] bg-[#fffaf0] p-3 text-stone-700 hover:bg-[#fbf3e4]">
+                    <Upload className="h-4 w-4 shrink-0 text-[#7e1d2c]" />
+                    <span className="min-w-0 flex-1">
+                      <strong className="block text-xs">Trocar anexos</strong>
+                      <span className="block truncate text-[10px] text-stone-500">
+                        {arquivosSubstituicao.length
+                          ? `${arquivosSubstituicao.length} novo(s) arquivo(s) selecionado(s)`
+                          : "Escolha PDF, JPG ou PNG. Ao salvar, os anexos atuais serão substituídos."}
+                      </span>
+                    </span>
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      className="sr-only"
+                      onChange={(event) => setArquivosSubstituicao(Array.from(event.target.files || []))}
+                    />
+                  </label>
+                )}
               </div>
               <div className="flex justify-end gap-2 pt-3 border-t border-stone-100">
                 <button type="button" onClick={() => setDetalheLancamento(null)} className="px-4 py-2 font-semibold text-stone-600">
                   Fechar
                 </button>
                 {detalheLancamento.editando ? (
-                  <button type="button" onClick={salvarEdicaoLancamento} className="inline-flex items-center gap-2 px-4 py-2 font-bold text-white bg-[#7e1d2c] hover:bg-[#681623] rounded-lg">
-                    <Save className="w-4 h-4" /> Salvar alterações
+                  <button type="button" disabled={salvandoEdicaoLancamento} onClick={() => void salvarEdicaoLancamento()} className="inline-flex items-center gap-2 px-4 py-2 font-bold text-white bg-[#7e1d2c] hover:bg-[#681623] rounded-lg disabled:opacity-60">
+                    <Save className="w-4 h-4" /> {salvandoEdicaoLancamento ? "Salvando…" : "Salvar alterações"}
                   </button>
                 ) : (
-                  <button type="button" onClick={() => setDetalheLancamento((atual) => atual ? { ...atual, editando: true } : null)} className="inline-flex items-center gap-2 px-4 py-2 font-bold text-white bg-[#7e1d2c] hover:bg-[#681623] rounded-lg">
-                    <Pencil className="w-4 h-4" /> Editar lançamento
+                  <button type="button" onClick={() => { setArquivosSubstituicao([]); setDetalheLancamento((atual) => atual ? { ...atual, editando: true } : null); }} className="inline-flex items-center gap-2 px-4 py-2 font-bold text-white bg-[#7e1d2c] hover:bg-[#681623] rounded-lg">
+                    <Pencil className="w-4 h-4" /> {detalheLancamento.lancamento.auditoriaTipo ? "Editar auditoria" : "Editar lançamento"}
                   </button>
                 )}
               </div>
@@ -3782,8 +4329,11 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 }
                 atualizarDadosCadastrais(distrato.id, {
                   agregadoNome: formCadastro.agregadoNome.trim(),
+                  empresaNome: formCadastro.empresaNome.trim(),
                   placaCavalo: formCadastro.placaCavalo,
                   placaCarreta: formCadastro.placaCarreta,
+                  dataEngateInicial: formCadastro.dataEngateInicial,
+                  dataEngateFinal: formCadastro.dataEngateFinal,
                   tipoDistrato: formCadastro.tipoDistrato,
                   gridOperacao:
                     formCadastro.gridOperacao === "Outro"
@@ -3813,6 +4363,16 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                   className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg font-normal"
                 />
               </label>
+              <label className="sm:col-span-2 font-bold text-stone-700">
+                Nome da empresa
+                <input
+                  value={formCadastro.empresaNome}
+                  onChange={(e) =>
+                    setFormCadastro((atual) => ({ ...atual, empresaNome: e.target.value }))
+                  }
+                  className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg font-normal"
+                />
+              </label>
               <label className="font-bold text-stone-700">
                 Placa do cavalo
                 <input
@@ -3837,6 +4397,25 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                     }))
                   }
                   className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg font-mono font-normal uppercase"
+                />
+              </label>
+              <label className="font-bold text-stone-700">
+                Data do engate inicial
+                <input
+                  type="date"
+                  value={formCadastro.dataEngateInicial}
+                  onChange={(e) => setFormCadastro((atual) => ({ ...atual, dataEngateInicial: e.target.value }))}
+                  className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg font-normal"
+                />
+              </label>
+              <label className="font-bold text-stone-700">
+                Data do engate final
+                <input
+                  type="date"
+                  min={formCadastro.dataEngateInicial || undefined}
+                  value={formCadastro.dataEngateFinal}
+                  onChange={(e) => setFormCadastro((atual) => ({ ...atual, dataEngateFinal: e.target.value }))}
+                  className="mt-1.5 w-full px-3 py-2.5 border border-stone-300 rounded-lg font-normal"
                 />
               </label>
               <label className="font-bold text-stone-700 order-1">

@@ -32,7 +32,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Contagem de tarefas para o perfil logado
   const tarefasPendentes = distratos.filter((d) => {
-    if (d.statusGeral === 'Quitado' || d.statusGeral === 'Cancelado') return false;
+    if (d.statusGeral === 'Finalizado' || d.statusGeral === 'Cancelado') return false;
 
     if (usuarioAtual.perfil === 'admin') {
       return true; // vê todas

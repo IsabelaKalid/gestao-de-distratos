@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Check, ArrowRight, ArrowLeft, Truck, AlertCircle } from 'lucide-react';
+import { X, Check, ArrowRight, ArrowLeft, Truck, AlertCircle, Upload, Loader2 } from 'lucide-react';
 import { useDistratos } from '../context/DistratoContext';
 import { Distrato } from '../types';
+import { supabase } from '../lib/supabase';
 
 const textoParaNumero = (valor: string) => {
   const texto = valor.trim();
@@ -31,17 +32,24 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
   onClose,
   onSuccess,
 }) => {
-  const { criarDistrato } = useDistratos();
+  const { criarDistrato, adicionarDocumento } = useDistratos();
 
   const [etapa, setEtapa] = useState<1 | 2 | 3>(1);
   const [erroValidacao, setErroValidacao] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [arquivosIniciais, setArquivosIniciais] = useState<File[]>([]);
+  const [categoriaDocumento, setCategoriaDocumento] = useState('Solicitação de encerramento');
+  const [descricaoDocumento, setDescricaoDocumento] = useState('');
 
   // Formulário em etapas
   const [form, setForm] = useState({
     agregadoNome: '',
+    empresaNome: '',
     tipoDistrato: 'Cavalo e Carreta' as Distrato['tipoDistrato'],
     placaCavalo: '',
     placaCarreta: '',
+    dataEngateInicial: '',
+    dataEngateFinal: '',
     gridOperacao: 'Uruguai',
     gridOutro: '',
     segmento: 'Aço',
@@ -88,18 +96,40 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
     }
   };
 
-  const handleSalvar = (e: React.FormEvent) => {
+  const handleArquivos = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const arquivos = Array.from(e.target.files || []);
+    const invalido = arquivos.find(
+      (arquivo) =>
+        !['application/pdf', 'image/jpeg', 'image/png'].includes(arquivo.type) ||
+        arquivo.size > 10 * 1024 * 1024,
+    );
+    if (invalido) {
+      setErroValidacao('Os documentos devem ser PDF, JPG ou PNG e ter no máximo 10 MB cada.');
+      e.target.value = '';
+      return;
+    }
+    setArquivosIniciais(arquivos);
+    setErroValidacao(null);
+  };
+
+  const handleSalvar = async (e: React.FormEvent) => {
     e.preventDefault();
     setErroValidacao(null);
+    if (salvando) return;
 
     // Converte string monetária brasileira para número float seguro
     const valorNumerico = textoParaNumero(form.debitoAluguel);
 
+    let idGerado: string | null = null;
     try {
-      const idGerado = criarDistrato({
+      setSalvando(true);
+      idGerado = criarDistrato({
         agregadoNome: form.agregadoNome,
+        empresaNome: form.empresaNome,
         placaCavalo: form.placaCavalo,
         placaCarreta: form.placaCarreta,
+        dataEngateInicial: form.dataEngateInicial,
+        dataEngateFinal: form.dataEngateFinal,
         tipoDistrato: form.tipoDistrato,
         gridOperacao:
           form.gridOperacao === 'Outro'
@@ -113,13 +143,34 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
         statusTermoAgregacao: form.statusTermoAgregacao,
       });
 
+      for (const arquivo of arquivosIniciais) {
+        const nomeSeguro = arquivo.name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(-120);
+        const caminho = `${idGerado}/cadastro-inicial/${crypto.randomUUID()}-${nomeSeguro}`;
+        const { error } = await supabase.storage
+          .from('documentos-distratos')
+          .upload(caminho, arquivo, { contentType: arquivo.type, upsert: false });
+        if (error) throw error;
+        adicionarDocumento(idGerado, {
+          nome: arquivo.name,
+          tipo: arquivo.type,
+          tamanhoKb: Math.ceil(arquivo.size / 1024),
+          categoria: categoriaDocumento,
+          descricao: descricaoDocumento.trim() || 'Documento anexado na abertura do distrato',
+          origem: 'Cadastro inicial',
+          url: caminho,
+        });
+      }
+
       // Reset
       setEtapa(1);
       setForm({
         agregadoNome: '',
+        empresaNome: '',
         tipoDistrato: 'Cavalo e Carreta',
         placaCavalo: '',
         placaCarreta: '',
+        dataEngateInicial: '',
+        dataEngateFinal: '',
         gridOperacao: 'Uruguai',
         gridOutro: '',
         segmento: 'Aço',
@@ -127,10 +178,20 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
         debitoAluguel: '',
         statusTermoAgregacao: 'Em Encerramento',
       });
+      setArquivosIniciais([]);
+      setCategoriaDocumento('Solicitação de encerramento');
+      setDescricaoDocumento('');
 
       onSuccess(idGerado);
     } catch (err) {
-      setErroValidacao('Ocorreu um erro ao salvar o distrato.');
+      if (idGerado) {
+        window.alert('O distrato foi criado, mas algum documento não pôde ser enviado. Confira o processo e anexe novamente em Documentos & Comprovantes.');
+        onSuccess(idGerado);
+      } else {
+        setErroValidacao('Não foi possível criar o distrato. Tente novamente.');
+      }
+    } finally {
+      setSalvando(false);
     }
   };
 
@@ -230,6 +291,20 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
                 />
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-stone-700 mb-1">
+                  Nome da empresa
+                </label>
+                <input
+                  type="text"
+                  name="empresaNome"
+                  value={form.empresaNome}
+                  onChange={handleChange}
+                  placeholder="Ex.: Transportadora ou empresa vinculada"
+                  className="w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg focus:ring-2 focus:ring-[#7e1d2c]/20 focus:border-[#7e1d2c] outline-none"
+                />
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="rounded-lg border border-[#d8bd86] bg-[#fbf6ee] px-3.5 py-2">
                   <p className="text-xs font-bold text-stone-700">Código do Agregado</p>
@@ -249,6 +324,30 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
                     <option value="Em Encerramento">Em Encerramento</option>
                   </select>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <label className="block text-xs font-bold text-stone-700">
+                  Data do engate inicial
+                  <input
+                    type="date"
+                    name="dataEngateInicial"
+                    value={form.dataEngateInicial}
+                    onChange={handleChange}
+                    className="mt-1 w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg outline-none"
+                  />
+                </label>
+                <label className="block text-xs font-bold text-stone-700">
+                  Data do engate final
+                  <input
+                    type="date"
+                    name="dataEngateFinal"
+                    value={form.dataEngateFinal}
+                    min={form.dataEngateInicial || undefined}
+                    onChange={handleChange}
+                    className="mt-1 w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg outline-none"
+                  />
+                </label>
               </div>
             </div>
           )}
@@ -400,11 +499,42 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
               <div className="rounded-xl p-4 bg-[#fbf9f5] border border-[#e8dfd3] space-y-2">
                 <div className="text-xs font-bold text-[#7e1d2c] flex items-center gap-1.5">
                   <Check className="w-4 h-4 text-[#7e1d2c]" />
-                  <span>Criação Automática das 11 Verificações</span>
+                  <span>Criação Automática das 12 Verificações</span>
                 </div>
                 <p className="text-[11px] text-stone-600 leading-relaxed">
-                  Ao confirmar, o sistema gerará o ID exclusivo do distrato e atribuirá as 11 etapas obrigatórias de auditoria (Manutenção, Sinistro, Carga, Multas, Abastecimento, Estadia, Câmera/Rastreador, Estacionamento, Pneus, ANTT e Suprimentos) com status "Aguardando análise".
+                  Ao confirmar, o sistema gerará o ID exclusivo do distrato e atribuirá as 12 verificações do fluxo (Aluguel de Equipamento, Manutenção, Sinistro, Carga, Multas, Abastecimento, Estadia, Câmera/Rastreador, Estacionamento, Pneus, ANTT e Suprimentos) com status "Aguardando análise".
                 </p>
+              </div>
+
+              <div className="rounded-xl border border-stone-200 bg-white p-4 space-y-3">
+                <div>
+                  <h3 className="text-xs font-bold text-stone-800">Documentos da abertura <span className="font-normal text-stone-500">(opcional)</span></h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-stone-500">
+                    Anexe a solicitação de encerramento, contrato/termo de agregação ou documentos do agregado e do veículo. Eles ficarão em Documentos &amp; Comprovantes.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <label className="text-xs font-bold text-stone-700">
+                    Tipo de documento
+                    <select value={categoriaDocumento} onChange={(e) => setCategoriaDocumento(e.target.value)} className="mt-1 w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg bg-white outline-none focus:border-[#7e1d2c]">
+                      <option>Solicitação de encerramento</option>
+                      <option>Termo de agregação / contrato</option>
+                      <option>Documento do agregado</option>
+                      <option>Documento do veículo</option>
+                      <option>Termo de encerramento</option>
+                      <option>Outro</option>
+                    </select>
+                  </label>
+                  <label className="text-xs font-bold text-stone-700">
+                    Identificação / observação
+                    <input type="text" value={descricaoDocumento} onChange={(e) => setDescricaoDocumento(e.target.value)} placeholder="Ex.: contrato assinado em 2025" className="mt-1 w-full px-3.5 py-2 text-xs border border-stone-300 rounded-lg outline-none focus:border-[#7e1d2c]" />
+                  </label>
+                </div>
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed border-[#c59b4c] bg-[#fffaf0] px-4 py-3 text-xs text-stone-700 hover:bg-[#fbf3e4]">
+                  <Upload className="h-4 w-4 shrink-0 text-[#7e1d2c]" />
+                  <span className="min-w-0 flex-1 truncate">{arquivosIniciais.length ? `${arquivosIniciais.length} arquivo(s) selecionado(s)` : 'Escolher documentos (PDF, JPG ou PNG, até 10 MB cada)'}</span>
+                  <input type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleArquivos} className="sr-only" />
+                </label>
               </div>
             </div>
           )}
@@ -442,10 +572,11 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
             ) : (
               <button
                 type="submit"
+                disabled={salvando}
                 className="inline-flex items-center gap-1.5 px-6 py-2 text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 active:bg-emerald-900 rounded-lg shadow-xs transition cursor-pointer"
               >
-                <Check className="w-4 h-4" />
-                <span>Criar Processo de Distrato</span>
+                {salvando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                <span>{salvando ? 'Criando e enviando…' : 'Criar Processo de Distrato'}</span>
               </button>
             )}
           </div>

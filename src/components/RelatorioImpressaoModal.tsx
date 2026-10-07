@@ -25,6 +25,10 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
   const dividaTotal = calcularDividaTotal(distrato);
   const totalPago = calcularTotalPago(distrato);
   const saldoRestante = calcularSaldoRestante(distrato);
+  const conferenciasSuprimentos = distrato.verificacoes
+    .filter((verificacao) => verificacao.tipo === 'suprimentos')
+    .flatMap((verificacao) => verificacao.lancamentos || [])
+    .filter((lancamento) => lancamento.auditoriaTipo);
 
   const handlePrint = () => {
     const tituloAnterior = document.title;
@@ -183,10 +187,77 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
             </div>
           </div>
 
+          {conferenciasSuprimentos.length > 0 && (
+            <div>
+              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2">
+                2. Conferência da Auditoria de Suprimentos
+              </h3>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-xs border border-slate-300 divide-y divide-slate-200">
+                  <thead className="bg-amber-50 font-bold text-slate-700">
+                    <tr>
+                      <th className="py-2 px-3">Registro auditado</th>
+                      <th className="py-2 px-2">Tipo</th>
+                      <th className="py-2 px-2 text-right">Valor lançado</th>
+                      <th className="py-2 px-2 text-right">Valor auditado</th>
+                      <th className="py-2 px-3 text-right">Diferença</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {conferenciasSuprimentos.map((item) => {
+                      const original = Number(item.valorOriginalAuditado || 0);
+                      const auditado = Number(item.valorAuditado || item.valor || 0);
+                      return (
+                        <tr key={item.id}>
+                          <td className="py-2 px-3">
+                            <div className="font-semibold">{item.dividaAuditadaDescricao || item.observacoes || 'Pendência adicional'}</div>
+                            {item.observacoes && item.dividaAuditadaDescricao && (
+                              <div className="text-[10px] text-slate-500">{item.observacoes}</div>
+                            )}
+                          </td>
+                          <td className="py-2 px-2">{item.auditoriaTipo}</td>
+                          <td className="py-2 px-2 text-right font-mono">{formatarMoeda(original)}</td>
+                          <td className="py-2 px-2 text-right font-mono">{formatarMoeda(auditado)}</td>
+                          <td className={`py-2 px-3 text-right font-mono font-bold ${Math.abs(auditado - original) > 0.009 ? 'text-rose-700' : 'text-emerald-700'}`}>
+                            {formatarMoeda(auditado - original)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 space-y-2">
+                {conferenciasSuprimentos.map((item, indice) => (
+                  <div key={`achado-${item.id}`} className="border border-slate-200 rounded p-3 text-[10px] text-slate-700 break-inside-avoid">
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <strong className="text-xs text-slate-900">Achado {indice + 1}: {item.auditoriaConclusao || item.auditoriaStatus || 'Em análise'}</strong>
+                      <span className="font-semibold">Criticidade: {item.auditoriaSeveridade || 'Não classificada'}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1">
+                      <p><strong>Critério:</strong> {item.auditoriaCriterio || '-'}</p>
+                      <p><strong>Situação encontrada:</strong> {item.auditoriaCondicao || '-'}</p>
+                      <p><strong>Causa:</strong> {item.auditoriaCausa || '-'}</p>
+                      <p><strong>Efeito/Risco:</strong> {item.auditoriaEfeito || '-'}</p>
+                      <p className="sm:col-span-2"><strong>Recomendação:</strong> {item.auditoriaRecomendacao || '-'}</p>
+                      <p><strong>Responsável:</strong> {item.auditoriaResponsavelAcao || '-'}</p>
+                      <p><strong>Prazo:</strong> {formatarData(item.auditoriaPrazoAcao)}</p>
+                      <p><strong>Evidências:</strong> {item.anexos?.length || 0} anexo(s)</p>
+                      <p><strong>Auditor:</strong> {item.usuarioNome}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-slate-500">
+                Os valores de conferência não alteram a dívida original. Apenas registros classificados como nova pendência entram no saldo.
+              </p>
+            </div>
+          )}
+
           {/* Quadro de Fechamento Financeiro */}
           <div className="report-financial-summary border border-slate-300 rounded-lg p-4 bg-slate-50 space-y-2">
             <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-1">
-              2. Balanço Financeiro Final do Encerramento
+              {conferenciasSuprimentos.length > 0 ? '3.' : '2.'} Balanço Financeiro Final do Encerramento
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center sm:divide-x divide-slate-200 pt-2">
               <div>

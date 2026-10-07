@@ -14,6 +14,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md', i
   // Verde suave: Concluídos, quitados, sem pendências
   if (
     status === 'Quitado' ||
+    status === 'Finalizado' ||
     status === 'Sem pendências' ||
     status === 'Concluída' ||
     status === 'Desvinculado' ||
@@ -55,6 +56,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({ status, size = 'md', i
   // Tom vinho sutil / ardósia suave: Processos em andamento, em aberto, emitidos
   else if (
     status === 'Em Aberto' ||
+    status === 'Em andamento' ||
     status === 'Em Auditoria' ||
     status === 'Distrato Emitido' ||
     status === 'Em Cobrança'

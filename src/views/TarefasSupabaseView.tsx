@@ -29,57 +29,87 @@ export const TarefasView: React.FC<TarefasViewProps> = ({ onVerDetalhe }) => {
 
   // Filtra as tarefas de acordo com o perfil atual
   const tarefas = useMemo(() => {
+    const departamentos = usuarioAtual.departamentos || (usuarioAtual.departamento ? [usuarioAtual.departamento] : []);
+    const pertence = (...nomes: string[]) => nomes.some((nome) => departamentos.includes(nome));
+    const tiposPorDepartamento: Record<string, string[]> = {
+      'Logística': ['aluguel_equipamento'],
+      'Oficina': ['manutencao', 'sinistro'],
+      'Multa': ['multas'],
+      'Abastecimento': ['abastecimento'],
+      'Customer Service': ['estadia', 'antt'],
+      'Tecnologia Integrada': ['camera_rastreador'],
+      'Estacionamento': ['estacionamento'],
+      'Almoxarifado': ['pneus'],
+      'Auditoria de Suprimentos': ['suprimentos'],
+      'Auditoria': ['perda_carga', 'suprimentos'],
+    };
+    const tiposPermitidos = new Set(departamentos.flatMap((departamento) => tiposPorDepartamento[departamento] || []));
+
     return distratos
       .filter((d) => d.statusGeral !== 'Quitado' && d.statusGeral !== 'Cancelado')
       .map((d) => {
-        let motivoPendencia = '';
+        const motivos: string[] = [];
         let itensArea: any[] = [];
+        const pendente = (status: string) => status === 'Aguardando análise' || status === 'Em análise';
 
         if (usuarioAtual.perfil === 'admin') {
-          motivoPendencia = `Fila atual: ${d.responsavelAtualNome} • Status: ${d.statusGeral}`;
-          itensArea = d.verificacoes.filter(
-            (v) => v.status === 'Aguardando análise' || v.status === 'Em análise'
-          );
-        } else if (usuarioAtual.perfil === 'cadastro') {
-          if (d.statusGeral === 'Aguardando Emissão' || d.statusGeral === 'Em Aberto') {
-            motivoPendencia = 'Conferência inicial de cadastro e emissão de minuta de distrato';
+          motivos.push(`Fila atual: ${d.responsavelAtualNome} • Status: ${d.statusGeral}`);
+          itensArea = d.verificacoes.filter((v) => pendente(v.status));
+        } else {
+          if (tiposPermitidos.size > 0) {
+            itensArea = d.verificacoes.filter((v) => tiposPermitidos.has(v.tipo) && pendente(v.status));
+            if (itensArea.length) motivos.push(`${itensArea.length} verificação(ões) do seu departamento`);
           }
-        } else if (usuarioAtual.perfil === 'manutencao') {
-          itensArea = d.verificacoes.filter(
+
+        if (usuarioAtual.perfil === 'cadastro' || pertence('Logística')) {
+          if (d.statusGeral === 'Aguardando Emissão' || d.statusGeral === 'Em Aberto') {
+            motivos.push('Conferência inicial do cadastro e do encerramento');
+          }
+        }
+        if (usuarioAtual.perfil === 'manutencao') {
+          const itensPerfil = d.verificacoes.filter(
             (v) =>
               (v.tipo === 'manutencao' || v.tipo === 'pneus') &&
-              (v.status === 'Aguardando análise' || v.status === 'Em análise')
+              pendente(v.status)
           );
-          if (itensArea.length > 0) {
-            motivoPendencia = `Avaliar oficina e pneus (${itensArea.map((i) => i.titulo).join(', ')})`;
+          itensArea = [...new Map([...itensArea, ...itensPerfil].map((item) => [item.id, item])).values()];
+          if (itensPerfil.length > 0) {
+            motivos.push('Avaliar oficina e pneus');
           }
-        } else if (usuarioAtual.perfil === 'verificacoes') {
-          itensArea = d.verificacoes.filter(
+        }
+        if (usuarioAtual.perfil === 'verificacoes') {
+          const itensPerfil = d.verificacoes.filter(
             (v) =>
               v.tipo !== 'manutencao' &&
               v.tipo !== 'pneus' &&
-              (v.status === 'Aguardando análise' || v.status === 'Em análise')
+              pendente(v.status)
           );
-          if (itensArea.length > 0) {
-            motivoPendencia = `${itensArea.length} verificação(ões) pendente(s) de auditoria de pátio`;
-          }
-        } else if (usuarioAtual.perfil === 'financeiro') {
-          if (d.statusFinanceiro === 'Aguardando boleto') {
-            motivoPendencia = 'Gerar boleto de cobrança com saldo consolidado';
-          } else if (d.statusFinanceiro === 'Vencido') {
-            motivoPendencia = 'Boleto vencido - Cobrar agregado ou encaminhar para protesto';
-          } else if (d.statusFinanceiro === 'Parcialmente pago') {
-            motivoPendencia = 'Acompanhar quitação de saldo residual';
-          }
-        } else if (usuarioAtual.perfil === 'juridico') {
-          if (d.statusGeral === 'Em Protesto') {
-            motivoPendencia = 'Acompanhar efetivação de protesto em cartório';
-          } else if (d.statusGeral === 'Ajuizado') {
-            motivoPendencia = 'Acompanhamento processual judicial da execução';
-          } else if (d.statusFinanceiro === 'Vencido') {
-            motivoPendencia = 'Analisar documentação para lavratura de protesto';
+          itensArea = [...new Map([...itensArea, ...itensPerfil].map((item) => [item.id, item])).values()];
+          if (itensPerfil.length > 0) {
+            motivos.push(`${itensPerfil.length} verificação(ões) pendente(s)`);
           }
         }
+        if (usuarioAtual.perfil === 'financeiro' || pertence('Financeiro')) {
+          if (d.statusFinanceiro === 'Aguardando boleto') {
+            motivos.push('Gerar boleto de cobrança com saldo consolidado');
+          } else if (d.statusFinanceiro === 'Vencido') {
+            motivos.push('Boleto vencido — acompanhar cobrança');
+          } else if (d.statusFinanceiro === 'Parcialmente pago') {
+            motivos.push('Acompanhar quitação do saldo residual');
+          }
+        }
+        if (usuarioAtual.perfil === 'juridico' || pertence('Jurídico')) {
+          if (d.statusGeral === 'Em Protesto') {
+            motivos.push('Acompanhar protesto em cartório');
+          } else if (d.statusGeral === 'Ajuizado') {
+            motivos.push('Acompanhamento da execução judicial');
+          } else if (d.statusFinanceiro === 'Vencido') {
+            motivos.push('Analisar documentação para protesto');
+          }
+        }
+        }
+
+        const motivoPendencia = motivos.join(' • ');
 
         return {
           distrato: d,

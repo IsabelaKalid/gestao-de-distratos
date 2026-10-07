@@ -18,6 +18,8 @@ export type AbaSistema =
   | "admin";
 
 export type StatusDistrato =
+  | "Em andamento"
+  | "Finalizado"
   | "Em Aberto"
   | "Em Auditoria"
   | "Aguardando Emissão"
@@ -49,6 +51,7 @@ export type StatusFinanceiro =
 export type TipoDistrato = "Cavalo" | "Carreta" | "Cavalo e Carreta";
 
 export type TipoVerificacao =
+  | "aluguel_equipamento"
   | "manutencao"
   | "sinistro"
   | "perda_carga"
@@ -117,6 +120,24 @@ export interface LancamentoVerificacao {
   valor: number;
   numeroDocumento?: string;
   observacoes?: string;
+  responsavelCusto?: "Agregado" | "Transpanorama";
+  quantidade?: number;
+  valorUnitario?: number;
+  auditoriaTipo?: "Conferência" | "Nova pendência";
+  dividaAuditadaId?: string;
+  dividaAuditadaDescricao?: string;
+  valorOriginalAuditado?: number;
+  valorAuditado?: number;
+  auditoriaStatus?: "Em análise" | "Concluída";
+  auditoriaConclusao?: "Conforme" | "Divergência" | "Nova pendência confirmada";
+  auditoriaCriterio?: string;
+  auditoriaCondicao?: string;
+  auditoriaCausa?: string;
+  auditoriaEfeito?: string;
+  auditoriaRecomendacao?: string;
+  auditoriaSeveridade?: "Baixa" | "Média" | "Alta";
+  auditoriaResponsavelAcao?: string;
+  auditoriaPrazoAcao?: string;
   anexos: Anexo[];
   usuarioId: string;
   usuarioNome: string;
@@ -135,6 +156,9 @@ export interface Verificacao {
   valor: number; // valor monetário numérico rigoroso
   observacoes: string;
   anexos: Anexo[];
+  responsavelCusto?: "Agregado" | "Transpanorama";
+  quantidade?: number;
+  valorUnitario?: number;
   // Lista incremental. Os campos acima continuam existindo para manter
   // compatibilidade com os distratos já cadastrados.
   lancamentos?: LancamentoVerificacao[];
@@ -148,16 +172,31 @@ export interface Verificacao {
   abastecimentoDataConferencia?: string;
   estadiaDataConferencia?: string;
   cameraValor?: number;
+  cameraQuantidade?: number;
   rastreadorValor?: number;
+  rastreadorQuantidade?: number;
   cameraRastreadorDataConferencia?: string;
   estacionamentoDataConferencia?: string;
   estacionamentoTag?: string;
   pneusObservacao?: string;
   pneusQuantidade?: number;
-  anttStatus?: "Em observação" | "Finalizado";
+  anttStatus?: "Vinculado" | "Em andamento" | "Desvinculado";
   anttData?: string;
   suprimentosResultado?: "Conforme" | "Inconforme" | "Pendente";
   suprimentosData?: string;
+  suprimentosTipoLancamento?: "Conferência" | "Nova pendência";
+  suprimentosDividaOrigemId?: string;
+  suprimentosValorAuditado?: number;
+  suprimentosAuditoriaStatus?: "Em análise" | "Concluída";
+  suprimentosAuditoriaConclusao?: "Conforme" | "Divergência" | "Nova pendência confirmada";
+  suprimentosCriterio?: string;
+  suprimentosCondicao?: string;
+  suprimentosCausa?: string;
+  suprimentosEfeito?: string;
+  suprimentosRecomendacao?: string;
+  suprimentosSeveridade?: "Baixa" | "Média" | "Alta";
+  suprimentosResponsavelAcao?: string;
+  suprimentosPrazoAcao?: string;
 }
 
 export interface Pagamento {
@@ -179,6 +218,8 @@ export interface Pagamento {
   dividaDescricao?: string;
   verificacaoId?: string;
   lancamentoId?: string;
+  /** Identifica pagamentos criados juntos em uma única baixa. */
+  lotePagamentoId?: string;
   formaPagamento:
     "Boleto Bancário" | "PIX" | "Transferência TED" | "Compensação" | "Outro";
   comprovanteNome?: string;
@@ -226,10 +267,13 @@ export interface Distrato {
   agregadoId: string;
   agregadoNome: string;
   agregadoCodigo: string;
+  empresaNome?: string;
   dataSolicitacao: string;
   statusTermoAgregacao: "Ativo" | "Suspenso" | "Em Encerramento" | "Rescindido";
   placaCavalo: string;
   placaCarreta: string;
+  dataEngateInicial?: string;
+  dataEngateFinal?: string;
   debitoAluguel: number;
   gridOperacao: string;
   segmento: string;

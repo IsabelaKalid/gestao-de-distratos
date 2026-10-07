@@ -54,10 +54,23 @@ export function arredondarMoeda(valor: number): number {
  * Débito de aluguel + soma de todas as verificações com pendência financeira
  */
 export function calcularDividaTotal(distrato: Distrato): number {
-  let total = distrato.debitoAluguel || 0;
+  const aluguelComoVerificacao = distrato.verificacoes?.some(
+    (v) => v.tipo === 'aluguel_equipamento'
+  );
+  let total = aluguelComoVerificacao ? 0 : (distrato.debitoAluguel || 0);
 
   if (Array.isArray(distrato.verificacoes)) {
     for (const v of distrato.verificacoes) {
+      if (v.lancamentos?.length) {
+        total += v.lancamentos
+          .filter((lancamento) =>
+            lancamento.responsavelCusto !== 'Transpanorama' &&
+            lancamento.auditoriaTipo !== 'Conferência'
+          )
+          .reduce((soma, lancamento) => soma + Number(lancamento.valor || 0), 0);
+        continue;
+      }
+      if (v.responsavelCusto === 'Transpanorama') continue;
       if (v.tipo === 'camera_rastreador') {
         total += v.lancamentos?.length
           ? v.valor || 0
@@ -149,17 +162,17 @@ export function atualizarStatusAutomaticos(distrato: Distrato): {
     return { statusGeral, statusFinanceiro };
   }
 
-  // Regra de Quitação
-  if (todasAuditoriasOk && saldo === 0 && (pago > 0 || divida === 0)) {
+  // A quitação financeira não encerra automaticamente o processo.
+  if (saldo === 0 && (pago > 0 || divida === 0)) {
     statusFinanceiro = 'Quitado';
-    statusGeral = 'Quitado';
+    statusGeral = distrato.statusGeral === 'Finalizado' ? 'Finalizado' : 'Em andamento';
     return { statusGeral, statusFinanceiro };
   }
 
   // Se tem pagamento parcial
   if (pago > 0 && saldo > 0) {
     statusFinanceiro = 'Parcialmente pago';
-    statusGeral = 'Em Cobrança';
+    statusGeral = 'Em andamento';
     return { statusGeral, statusFinanceiro };
   }
 
@@ -173,17 +186,17 @@ export function atualizarStatusAutomaticos(distrato: Distrato): {
     } else {
       statusFinanceiro = 'A vencer';
     }
-    statusGeral = 'Em Cobrança';
+    statusGeral = 'Em andamento';
   } else {
     // Sem boleto ainda
     if (!todasAuditoriasOk) {
-      statusGeral = 'Em Aberto';
+      statusGeral = 'Em andamento';
       statusFinanceiro = 'Aguardando boleto';
     } else {
       if (distrato.dataEmissaoDistrato) {
-        statusGeral = 'Distrato Emitido';
+        statusGeral = 'Em andamento';
       } else {
-        statusGeral = 'Aguardando Emissão';
+        statusGeral = 'Em andamento';
       }
       statusFinanceiro = 'Aguardando boleto';
     }

@@ -1,0 +1,27 @@
+COMO APLICAR A ATUALIZAÇÃO
+
+1. Pare o servidor com Ctrl + C.
+2. Abra esta pasta e copie a pasta "src".
+3. Cole dentro da pasta principal do seu projeto.
+4. Quando o Windows perguntar, escolha "Substituir os arquivos no destino".
+5. Na pasta do projeto, execute:
+
+   npm.cmd run dev
+
+6. No navegador, pressione Ctrl + F5.
+
+COMO CONFIRMAR
+
+Na Auditoria de Suprimentos devem aparecer campos como:
+- Tipo de registro da auditoria
+- Etapa da auditoria
+- Conclusão
+- Criticidade
+- Critério
+- Situação encontrada
+- Causa
+- Efeito / risco
+- Recomendação / ação corretiva
+
+Se ainda aparecer "Resultado da Análise", "Responsável pelo custo" e
+"Adicionar outro valor", os arquivos foram colados na pasta errada.

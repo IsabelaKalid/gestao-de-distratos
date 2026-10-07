@@ -14,6 +14,8 @@ import {
   UserCheck,
   ChevronRight,
   ShieldAlert,
+  BookOpenCheck,
+  ChevronDown,
 } from 'lucide-react';
 import { useDistratos } from '../context/DistratoContext';
 import {
@@ -232,6 +234,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
         </div>
       </div>
+
+      <details className="group rounded-2xl border border-[#e4d3b5] bg-[#fffaf0] shadow-2xs">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <span className="rounded-lg border border-[#e4d3b5] bg-white p-2 text-[#7e1d2c]"><BookOpenCheck className="h-4 w-4" /></span>
+            <div>
+              <h2 className="text-sm font-bold text-stone-900">Conduta e boas práticas do distrato</h2>
+              <p className="text-[11px] text-stone-500">Checklist operacional, financeiro, documental e de proteção de dados.</p>
+            </div>
+          </div>
+          <ChevronDown className="h-4 w-4 shrink-0 text-stone-500 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="grid grid-cols-1 gap-3 border-t border-[#eadcc4] px-5 py-4 md:grid-cols-2 xl:grid-cols-3">
+          {[
+            ['1. Abrir com dados conferidos', 'Confirme agregado, empresa, placas, grid, segmento, datas de engate e vínculo contratual antes de iniciar as consultas.'],
+            ['2. Anexar a origem do processo', 'Guarde a solicitação de encerramento, contrato/termo e documentos relevantes já no cadastro, sempre na categoria correta.'],
+            ['3. Registrar fatos com evidência', 'Toda pendência deve ter categoria, descrição, data, valor, responsável e comprovante. Não altere valores para “fazer bater”.'],
+            ['4. Preservar a trilha', 'Corrija por edição registrada ou cancele com justificativa. Não exclua lançamentos ou evidências apenas para ocultar um erro.'],
+            ['5. Separar análise e pagamento', 'O setor informa o valor; a Auditoria confere; o Financeiro vincula o pagamento à dívida. Quitação exige comprovante.'],
+            ['6. Encerrar somente após conferir', 'Valide saldo, auditorias, ANTT/CIOT, documentos e termo. Finalize apenas quando as pendências estiverem resolvidas ou formalmente justificadas.'],
+          ].map(([titulo, texto]) => (
+            <div key={titulo} className="rounded-xl border border-[#eee3d0] bg-white p-3">
+              <h3 className="text-xs font-bold text-stone-800">{titulo}</h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-stone-600">{texto}</p>
+            </div>
+          ))}
+          <p className="md:col-span-2 xl:col-span-3 text-[10px] leading-relaxed text-stone-500">
+            Regra de acesso: use conta individual, consulte apenas processos necessários ao trabalho e não compartilhe documentos fora do fluxo autorizado. Casos jurídicos ou contratuais excepcionais devem ser validados pelo Jurídico.
+          </p>
+        </div>
+      </details>
 
       {/* Grid de 8 Cards de KPIs Principais */}
       <div className="grid grid-cols-1 min-[420px]:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">

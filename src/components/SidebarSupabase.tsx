@@ -10,11 +10,6 @@ import {
   FileText,
   HelpCircle,
   X,
-  Banknote,
-  Scale,
-  Files,
-  ClipboardCheck,
-  BarChart3,
 } from "lucide-react";
 import { useDistratos } from "../context/SupabaseDistratoContext";
 import type { AbaSistema } from "../types";
@@ -38,7 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   // Contagem de tarefas para o perfil logado
   const tarefasPendentes = distratos.filter((d) => {
-    if (d.statusGeral === "Quitado" || d.statusGeral === "Cancelado")
+    if (d.statusGeral === "Finalizado" || d.statusGeral === "Cancelado")
       return false;
 
     if (usuarioAtual.perfil === "admin") {
@@ -106,8 +101,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     },
     {
       id: "lista" as const,
-      label: "Distratos de Frotas",
-      descricao: "Base central de processos",
+      label: "Distratos",
+      descricao: "Processos, busca e relatórios",
       icon: FileSpreadsheet,
       badge: distratos.length,
       permitido: true,
@@ -120,53 +115,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
       badge: tarefasPendentes,
       badgeColor: "bg-amber-100 text-amber-800 border-amber-300",
       permitido: true,
-    },
-    {
-      id: "financeiro" as const,
-      label: "Cobrança & Pagamentos",
-      descricao: "Boletos e recebimentos",
-      icon: Banknote,
-      permitido: perfil === "financeiro" || temDepartamento("Financeiro"),
-    },
-    {
-      id: "juridico" as const,
-      label: "Jurídico",
-      descricao: "Protestos & execução",
-      icon: Scale,
-      permitido: perfil === "juridico" || temDepartamento("Jurídico"),
-    },
-    {
-      id: "documentos" as const,
-      label: "Documentos",
-      descricao: "Arquivos dos processos",
-      icon: Files,
-      permitido: true,
-    },
-    {
-      id: "auditoria" as const,
-      label: "Auditorias",
-      descricao: "Verificações de frota",
-      icon: ClipboardCheck,
-      permitido:
-        ["admin", "manutencao", "verificacoes"].includes(perfil) ||
-        temDepartamento(
-          "Oficina",
-          "Abastecimento",
-          "Multa",
-          "Customer Service",
-          "Tecnologia Integrada",
-          "Estacionamento",
-          "Almoxarifado",
-          "Auditoria",
-          "Auditoria de Suprimentos",
-        ),
-    },
-    {
-      id: "relatorios" as const,
-      label: "Relatórios",
-      descricao: "Termos & impressão",
-      icon: BarChart3,
-      permitido: perfil === "admin",
     },
     {
       id: "admin" as const,
@@ -230,7 +178,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Menu de Navegação */}
           <nav className="space-y-1">
             <div className="px-3 pb-2 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
-              Módulos do Sistema
+              Navegação principal
             </div>
 
             {itensNav.map((item) => {
