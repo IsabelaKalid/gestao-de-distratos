@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useDistratos } from '../context/DistratoContext';
+import { EMPRESA } from '../config/empresa';
 
 interface SidebarProps {
   abaAtiva: 'dashboard' | 'lista' | 'tarefas' | 'admin';
@@ -213,13 +214,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </span>
             </div>
             <p className="text-[11px] text-stone-500 mt-1 leading-relaxed">
-              Transpanorama Transportes • Auditorias ativas.
+              {EMPRESA.nome} • Auditorias ativas.
             </p>
           </div>
 
           <div className="flex items-center justify-between text-[11px] text-stone-400 px-1">
             <span>Versão 2.4 Enterprise</span>
-            <span>Maringá - PR</span>
           </div>
         </div>
       </aside>

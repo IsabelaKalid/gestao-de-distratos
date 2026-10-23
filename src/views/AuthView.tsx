@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { BrandLogo } from "../components/BrandLogo";
+import { EMPRESA } from "../config/empresa";
 
 export const AuthView: React.FC = () => {
   const { entrar, cadastrar, recuperarSenha, recuperandoSenha, atualizarSenhaRecuperada } = useAuth();
@@ -145,9 +146,10 @@ export const AuthView: React.FC = () => {
         onMouseLeave={() => setMovimento({ x: 0, y: 0 })}
       >
         <div
-          className="absolute -inset-5 bg-cover bg-center transition-transform duration-700 ease-out"
+          className="absolute -inset-5 transition-transform duration-700 ease-out"
           style={{
-            backgroundImage: "url('/assets/transpanorama-frota.png')",
+            backgroundImage:
+              "radial-gradient(circle at 75% 30%, rgba(215, 168, 69, 0.35), transparent 45%), radial-gradient(circle at 20% 80%, rgba(120, 20, 30, 0.6), transparent 50%), linear-gradient(135deg, #2a060b, #120203)",
             transform: `translate(${movimento.x}px, ${movimento.y}px) scale(1.04)`,
           }}
         />
@@ -155,10 +157,7 @@ export const AuthView: React.FC = () => {
         <div className="absolute inset-0 bg-gradient-to-t from-[#120203]/95 via-transparent to-[#1b0306]/60" />
         <section className="relative z-10 min-h-screen max-w-7xl mx-auto px-6 sm:px-10 lg:px-16 py-8 flex flex-col justify-between">
           <div>
-            <BrandLogo className="w-64 sm:w-80" />
-            <p className="mt-2 text-xs text-[#e7c784]">
-              Gestão de Distratos de Frotas
-            </p>
+            <BrandLogo size="lg" tagline />
           </div>
           <div className="max-w-2xl py-16">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#d7aa55]/40 bg-[#29080d]/70 px-4 py-2 text-xs text-[#f0d79f]">
@@ -208,8 +207,7 @@ export const AuthView: React.FC = () => {
             </div>
           </div>
           <p className="text-xs text-stone-400">
-            Transpanorama Transportes • Acesso exclusivo para pessoas
-            autorizadas
+            {EMPRESA.nome} • Acesso exclusivo para pessoas autorizadas
           </p>
         </section>
       </main>

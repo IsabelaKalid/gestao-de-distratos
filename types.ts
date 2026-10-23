@@ -116,7 +116,7 @@ export interface LancamentoVerificacao {
   valor: number;
   numeroDocumento?: string;
   observacoes?: string;
-  responsavelCusto?: "Agregado" | "Transpanorama";
+  responsavelCusto?: "Agregado" | "Empresa";
   quantidade?: number;
   valorUnitario?: number;
   auditoriaTipo?: "Conferência" | "Nova pendência";
@@ -152,7 +152,7 @@ export interface Verificacao {
   valor: number; // valor monetário numérico rigoroso
   observacoes: string;
   anexos: Anexo[];
-  responsavelCusto?: "Agregado" | "Transpanorama";
+  responsavelCusto?: "Agregado" | "Empresa";
   quantidade?: number;
   valorUnitario?: number;
   // Lista incremental. Os campos acima continuam existindo para manter

@@ -1,4 +1,4 @@
--- Execute uma única vez no SQL Editor do projeto Transpanorama.
+-- Execute uma única vez no SQL Editor do projeto no Supabase.
 -- Preserva somente os distratos confirmados abaixo e não altera usuários/perfis.
 
 begin;

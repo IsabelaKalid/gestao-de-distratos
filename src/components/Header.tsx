@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useDistratos } from '../context/DistratoContext';
 import { formatarDataHora } from '../utils/calculations';
+import { EMPRESA } from '../config/empresa';
 
 interface HeaderProps {
   onOpenLogin: () => void;
@@ -79,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
     <header className="sticky top-0 z-50 bg-[#220609] border-b border-[#a87f3b]/30 text-white select-none shadow-md w-full">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 gap-4">
-          {/* Logo e Nome do Sistema Transpanorama */}
+          {/* Logo e Nome do Sistema */}
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -93,16 +94,16 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
 
             <div className="flex items-center gap-3">
-              {/* Monograma TP estilizado inspirado na imagem */}
+              {/* Monograma da empresa */}
               <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#3d0f16] via-[#24070a] to-[#160305] border border-[#c59b4c]/50 flex items-center justify-center shadow-inner text-white font-black tracking-tighter">
                 <span className="text-sm font-extrabold bg-gradient-to-r from-[#e7c784] via-[#c59b4c] to-[#f5ecd7] bg-clip-text text-transparent">
-                  TP
+                  {EMPRESA.nome.slice(0, 2).toUpperCase()}
                 </span>
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-base font-extrabold tracking-wider text-stone-100 uppercase">
-                    Transpanorama
+                    {EMPRESA.nome}
                   </span>
                   <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#3d0f16] text-[#dfc28d] border border-[#c59b4c]/30">
                     FROTAS

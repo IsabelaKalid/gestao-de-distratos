@@ -5,14 +5,11 @@ import {
   CheckSquare,
   Settings,
   PlusCircle,
-  AlertCircle,
-  Truck,
-  FileText,
-  HelpCircle,
   X,
 } from "lucide-react";
 import { useDistratos } from "../context/SupabaseDistratoContext";
 import type { AbaSistema } from "../types";
+import { EMPRESA } from "../config/empresa";
 
 interface SidebarProps {
   abaAtiva: AbaSistema;
@@ -136,19 +133,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       <aside
-        className={`fixed top-16 bottom-0 left-0 z-40 w-64 bg-[#fcfbf9] border-r border-stone-200 transform transition-transform duration-200 ease-in-out lg:sticky lg:top-16 lg:self-start lg:h-[calc(100vh-4rem)] lg:translate-x-0 lg:z-30 lg:shrink-0 flex flex-col justify-between overflow-y-auto ${
+        className={`fixed top-16 bottom-0 left-0 z-40 w-64 bg-[#faf8f5] border-r border-stone-200 transform transition-transform duration-200 ease-in-out lg:sticky lg:top-16 lg:self-start lg:h-[calc(100vh-4rem)] lg:translate-x-0 lg:z-30 lg:shrink-0 flex flex-col justify-between overflow-y-auto ${
           isOpenMobile ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="p-4 space-y-5">
+        <div className="p-4 space-y-6">
           {/* Header Mobile com botão fechar */}
           <div className="flex items-center justify-between lg:hidden pb-2 border-b border-stone-200">
-            <div className="flex items-center gap-2">
-              <Truck className="w-5 h-5 text-[#7e1d2c]" />
-              <span className="font-bold text-stone-800 text-sm">
-                Navegação
-              </span>
-            </div>
+            <span className="font-bold text-stone-800 text-sm">Menu</span>
             <button
               onClick={onCloseMobile}
               className="p-1 rounded text-stone-400 hover:text-stone-600"
@@ -168,17 +160,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 onOpenNovoDistrato();
                 if (isOpenMobile) onCloseMobile();
               }}
-              className="sidebar-primary-action w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#7e1d2c] active:bg-[#54101a] text-stone-100 font-semibold text-xs border border-[#c59b4c]/30 shadow-xs transition cursor-pointer"
+              className="sidebar-primary-action w-full flex items-center justify-center gap-2 h-11 px-4 rounded-xl text-stone-50 font-semibold text-sm shadow-sm cursor-pointer"
             >
-              <PlusCircle className="w-4 h-4 text-[#dfc28d]" />
-              <span>Cadastrar Novo Distrato</span>
+              <PlusCircle className="w-4 h-4 text-[#f0d48f]" />
+              <span>Novo distrato</span>
             </button>
           )}
 
           {/* Menu de Navegação */}
           <nav className="space-y-1">
-            <div className="px-3 pb-2 text-[10px] font-bold tracking-wider text-stone-400 uppercase">
-              Navegação principal
+            <div className="px-3 pb-2 text-[10px] font-bold tracking-[0.16em] text-stone-400 uppercase">
+              Menu principal
             </div>
 
             {itensNav.map((item) => {
@@ -189,42 +181,48 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   key={item.id}
                   id={`nav-item-${item.id}`}
                   type="button"
+                  aria-current={ativo ? "page" : undefined}
                   onClick={() => {
                     onChangeAba(item.id);
                     selecionarDistrato(null); // Volta para a tela principal da aba
                     if (isOpenMobile) onCloseMobile();
                   }}
-                  className={`sidebar-nav-item w-full flex items-center justify-between p-2.5 rounded-xl text-left transition cursor-pointer ${
+                  className={`sidebar-nav-item w-full flex items-center gap-3 h-14 px-3 rounded-xl text-left cursor-pointer ${
                     ativo
-                      ? "sidebar-nav-item-active bg-[#29080d] text-stone-100 shadow-sm font-semibold border-l-3 border-[#c59b4c]"
-                      : "text-stone-600"
+                      ? "sidebar-nav-item-active text-stone-50"
+                      : "text-stone-700"
                   }`}
                 >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Icon
-                      className={`w-4 h-4 shrink-0 ${ativo ? "text-[#dfc28d]" : "text-stone-400"}`}
-                    />
-                    <div className="min-w-0">
-                      <div className="text-xs leading-tight truncate">
-                        {item.label}
-                      </div>
-                      <div
-                        className={`sidebar-nav-description text-[10px] truncate ${
-                          ativo ? "text-stone-300" : "text-stone-400"
-                        }`}
-                      >
-                        {item.descricao}
-                      </div>
-                    </div>
-                  </div>
+                  <span
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                      ativo
+                        ? "bg-white/10 text-[#f0d48f]"
+                        : "bg-white border border-stone-200 text-[#7e1d2c]"
+                    }`}
+                  >
+                    <Icon className="w-[18px] h-[18px]" />
+                  </span>
+                  <span className="flex-1 min-w-0">
+                    <span className="block text-[13px] font-semibold leading-tight truncate">
+                      {item.label}
+                    </span>
+                    <span
+                      className={`block mt-0.5 text-[11px] leading-tight truncate ${
+                        ativo ? "text-stone-300" : "text-stone-500"
+                      }`}
+                    >
+                      {item.descricao}
+                    </span>
+                  </span>
 
                   {item.badge !== undefined && item.badge > 0 && (
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                      className={`min-w-6 h-6 px-1.5 inline-flex items-center justify-center text-[11px] font-bold rounded-full shrink-0 ${
                         ativo
-                          ? "bg-[#7e1d2c] text-stone-100 border-[#9e273a]"
-                          : item.badgeColor ||
-                            "bg-stone-200/80 text-stone-700 border-stone-300"
+                          ? "bg-[#d9b86f] text-[#29080d]"
+                          : item.badgeColor
+                            ? "bg-amber-100 text-amber-800"
+                            : "bg-stone-200 text-stone-700"
                       }`}
                     >
                       {item.badge}
@@ -236,24 +234,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </nav>
         </div>
 
-        {/* Rodapé do Sidebar com informações operacionais */}
-        <div className="p-4 border-t border-stone-200/70 bg-[#f7f5f2] space-y-3">
-          <div className="card-gradient-hover rounded-lg p-3 bg-white border border-stone-200 shadow-2xs">
-            <div className="flex items-center justify-between text-xs font-semibold text-stone-700">
-              <span>Status Operacional</span>
-              <span className="flex h-2 w-2 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
+        {/* Rodapé do Sidebar */}
+        <div className="p-4 border-t border-stone-200/70">
+          <div className="flex items-center gap-3 rounded-xl bg-white border border-stone-200 px-3 py-2.5">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-60"></span>
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            </span>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-stone-700 leading-tight">Sistema operacional</p>
+              <p className="text-[11px] text-stone-400 leading-tight mt-0.5 truncate">
+                {EMPRESA.nome} · versão 2.4
+              </p>
             </div>
-            <p className="text-[11px] text-stone-500 mt-1 leading-relaxed">
-              Transpanorama Transportes • Auditorias ativas.
-            </p>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-stone-400 px-1">
-            <span>Versão 2.4 Enterprise</span>
-            <span>Maringá - PR</span>
           </div>
         </div>
       </aside>

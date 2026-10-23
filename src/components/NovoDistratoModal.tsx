@@ -3,6 +3,7 @@ import { X, Check, ArrowRight, ArrowLeft, Truck, AlertCircle, Upload, Loader2 } 
 import { useDistratos } from '../context/DistratoContext';
 import { Distrato } from '../types';
 import { supabase } from '../lib/supabase';
+import { EMPRESA } from '../config/empresa';
 
 const textoParaNumero = (valor: string) => {
   const texto = valor.trim();
@@ -207,7 +208,7 @@ export const NovoDistratoModal: React.FC<NovoDistratoModalProps> = ({
             <div>
               <h2 className="text-base font-bold text-stone-100">Cadastro de Novo Distrato</h2>
               <p className="hidden sm:block text-xs text-stone-400">
-                Início de processo formal de encerramento contratual • Transpanorama
+                Início de processo formal de encerramento contratual • {EMPRESA.nome}
               </p>
             </div>
           </div>

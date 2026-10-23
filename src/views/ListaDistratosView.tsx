@@ -26,6 +26,7 @@ import {
   calcularTotalPago,
 } from '../utils/calculations';
 import { StatusBadge } from '../components/StatusBadge';
+import { EMPRESA } from '../config/empresa';
 
 interface ListaDistratosViewProps {
   onVerDetalhe: (id: string) => void;
@@ -169,7 +170,7 @@ export const ListaDistratosView: React.FC<ListaDistratosViewProps> = ({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `relatorio_distratos_transpanorama_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `relatorio_distratos_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -183,7 +184,7 @@ export const ListaDistratosView: React.FC<ListaDistratosViewProps> = ({
           <div className="flex items-center gap-2 text-xs font-semibold text-[#865d1d]">
             <span>Módulo de Frotas & Operações</span>
             <span>•</span>
-            <span>Transpanorama Transportes</span>
+            <span>{EMPRESA.nome}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight mt-0.5">
             Gerenciamento de Distratos

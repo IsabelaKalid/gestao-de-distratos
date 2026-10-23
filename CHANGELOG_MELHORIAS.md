@@ -9,8 +9,8 @@
 - aluguel de equipamento transformado em verificação com múltiplos lançamentos e anexos;
 - compatibilidade automática com o aluguel dos distratos antigos;
 - nomes ajustados para **Manutenção**, **Estadia**, **Estacionamento** e **Pneus**;
-- responsável pelo custo: **Agregado** ou **Transpanorama**;
-- valores atribuídos à Transpanorama não entram na dívida do agregado;
+- responsável pelo custo: **Agregado** ou **Empresa**;
+- valores atribuídos à empresa não entram na dívida do agregado;
 - Pneus com quantidade, valor unitário e total calculado;
 - Câmera e Rastreador com quantidades e valores unitários;
 - ANTT com os estados **Vinculado**, **Em andamento** e **Desvinculado**;

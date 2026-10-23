@@ -73,37 +73,42 @@
   }
 }
 
-.sidebar-nav-item,
 .sidebar-primary-action {
-  background-size: 220% 220%;
-  transition:
-    transform 200ms ease,
-    color 200ms ease,
-    box-shadow 200ms ease,
-    background-position 380ms ease;
+  background-image: linear-gradient(120deg, #7e1d2c 0%, #5f1522 100%);
+  transition: box-shadow 200ms ease, filter 200ms ease;
+}
+
+.sidebar-nav-item {
+  position: relative;
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 .sidebar-nav-item-active {
-  background-image: linear-gradient(135deg, #220609 0%, #5f1522 58%, #936b2d 130%);
+  background-image: linear-gradient(120deg, #29080d 0%, #4a0f19 100%);
+  box-shadow: 0 6px 16px rgba(41, 8, 13, 0.18);
+}
+
+/* Indicador do item ativo, sem deslocar o conteúdo. */
+.sidebar-nav-item-active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: #d9b86f;
 }
 
 @media (hover: hover) and (pointer: fine) {
-  .sidebar-nav-item:hover,
+  .sidebar-nav-item:not(.sidebar-nav-item-active):hover {
+    background-color: #f1ebe3;
+    color: #29080d;
+  }
+
   .sidebar-primary-action:hover {
-    color: #fff;
-    transform: translateX(4px);
-    background-image: linear-gradient(110deg, #29080d 0%, #7e1d2c 58%, #c59b4c 125%);
-    background-position: 0% 50%;
-    box-shadow: 0 9px 22px rgba(79, 15, 25, 0.2);
-  }
-
-  .sidebar-nav-item:hover svg,
-  .sidebar-primary-action:hover svg {
-    color: #f0cf8e;
-  }
-
-  .sidebar-nav-item:hover .sidebar-nav-description {
-    color: #f4dfba;
+    filter: brightness(1.12);
+    box-shadow: 0 8px 18px rgba(79, 15, 25, 0.22);
   }
 }
 
@@ -115,14 +120,12 @@
   display: none;
 }
 
-.brand-logo {
-  aspect-ratio: 4.7 / 1;
-  background-image: url('/assets/transpanorama-frota.png');
-  background-repeat: no-repeat;
-  background-size: 125% auto;
-  background-position: 50% 22.5%;
-  border-radius: 8px;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.2));
+.brand-mark {
+  background-image: linear-gradient(145deg, #f0d48f 0%, #c59b4c 55%, #9a7330 100%);
+  color: #29080d;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .brand-action {

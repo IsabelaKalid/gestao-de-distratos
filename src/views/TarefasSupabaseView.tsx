@@ -19,6 +19,7 @@ import {
   calcularSaldoRestante,
 } from '../utils/calculations';
 import { StatusBadge } from '../components/StatusBadge';
+import { EMPRESA } from '../config/empresa';
 
 interface TarefasViewProps {
   onVerDetalhe: (id: string) => void;
@@ -129,7 +130,7 @@ export const TarefasView: React.FC<TarefasViewProps> = ({ onVerDetalhe }) => {
           <div className="flex items-center gap-2 text-xs font-semibold text-[#865d1d]">
             <span>Fluxo de Trabalho Departamental</span>
             <span>•</span>
-            <span>Transpanorama</span>
+            <span>{EMPRESA.nome}</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black text-stone-900 tracking-tight mt-0.5">
             Minha Fila de Responsabilidades

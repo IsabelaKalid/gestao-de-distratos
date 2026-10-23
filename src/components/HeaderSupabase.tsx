@@ -86,10 +86,10 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-[#220609] border-b border-[#a87f3b]/30 text-white select-none shadow-md w-full max-w-[100vw]">
-      <div className="w-full max-w-7xl mx-auto px-2 sm:px-6 lg:px-8 min-w-0">
+    <header className="sticky top-0 z-50 bg-gradient-to-r from-[#1c0407] via-[#250609] to-[#1c0407] border-b border-[#a87f3b]/25 text-white select-none shadow-md w-full max-w-[100vw]">
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 min-w-0">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center h-16 gap-1 sm:gap-4 min-w-0">
-          {/* Logo e Nome do Sistema Transpanorama */}
+          {/* Logo e Nome do Sistema */}
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <button
               type="button"
@@ -102,21 +102,12 @@ export const Header: React.FC<HeaderProps> = ({
               </svg>
             </button>
 
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <BrandLogo className="hidden min-[430px]:block w-40 sm:w-52 shrink-0" />
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0 min-[430px]:hidden">
-                  <span className="block text-xs min-[390px]:text-sm sm:text-base font-extrabold tracking-wide sm:tracking-wider text-stone-100 uppercase truncate min-w-0">
-                    Transpanorama
-                  </span>
-                  <span className="hidden lg:inline text-[10px] font-bold px-1.5 py-0.2 rounded bg-[#3d0f16] text-[#dfc28d] border border-[#c59b4c]/30 shrink-0">
-                    FROTAS
-                  </span>
-                </div>
-                <p className="text-[10px] text-stone-400 hidden xl:block truncate">
-                  Gestão Integrada de Distratos & Auditoria de Veículos
-                </p>
-              </div>
+            <div className="flex items-center gap-4 min-w-0">
+              <BrandLogo size="sm" tagline className="min-w-0" />
+              <div className="hidden xl:block h-8 w-px bg-white/10" />
+              <p className="hidden xl:block text-[11px] leading-snug text-stone-400 max-w-[13rem]">
+                Distratos, auditoria e cobrança de agregados
+              </p>
             </div>
           </div>
 

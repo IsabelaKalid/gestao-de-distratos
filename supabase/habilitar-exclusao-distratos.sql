@@ -1,4 +1,4 @@
--- Execute uma vez no SQL Editor do projeto Transpanorama.
+-- Execute uma vez no SQL Editor do projeto no Supabase.
 -- A exclusão continua restrita ao perfil supervisor (valor interno: admin).
 
 grant delete on table public.distratos to authenticated;

@@ -8,6 +8,7 @@ import {
   calcularTotalPago,
   calcularSaldoRestante,
 } from '../utils/calculations';
+import { EMPRESA } from '../config/empresa';
 
 interface RelatorioImpressaoModalProps {
   distrato: Distrato;
@@ -78,18 +79,18 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
             <div>
               <div className="flex items-center gap-2">
                 <div className="h-8 w-8 rounded-lg bg-[#29080d] border border-[#c59b4c]/60 flex items-center justify-center font-black text-xs text-[#dfc28d]">
-                  TP
+                  {EMPRESA.nome.slice(0, 2).toUpperCase()}
                 </div>
                 <h1 className="text-xl font-extrabold text-stone-900 tracking-tight">
-                  TRANSPANORAMA TRANSPORTES S.A.
+                  {EMPRESA.razaoSocial.toUpperCase()}
                 </h1>
               </div>
               <p className="text-xs text-stone-600 font-medium mt-1">
                 Departamento de Frotas, Gestão de Agregados e Auditoria Contratual
               </p>
-              <p className="text-[11px] text-stone-500">
-                CNPJ: 79.172.934/0001-09 • Rodovia PR-317, km 05 - Maringá/PR
-              </p>
+              {EMPRESA.dadosCadastrais && (
+                <p className="text-[11px] text-stone-500">{EMPRESA.dadosCadastrais}</p>
+              )}
             </div>
             <div className="text-right">
               <div className="inline-block px-3 py-1 rounded bg-stone-100 border border-stone-300 font-mono text-xs font-bold text-stone-800">
@@ -289,7 +290,7 @@ export const RelatorioImpressaoModal: React.FC<RelatorioImpressaoModalProps> = (
           {/* Campo de Assinaturas */}
           <div className="report-signatures pt-12 grid grid-cols-1 sm:grid-cols-2 gap-12 text-center text-xs">
             <div className="border-t border-slate-400 pt-2">
-              <p className="font-bold text-slate-900">TRANSPANORAMA TRANSPORTES S.A.</p>
+              <p className="font-bold text-slate-900">{EMPRESA.razaoSocial.toUpperCase()}</p>
               <p className="text-slate-500">Representante Legal / Gerência de Frotas</p>
             </div>
             <div className="border-t border-slate-400 pt-2">

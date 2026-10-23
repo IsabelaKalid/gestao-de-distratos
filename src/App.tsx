@@ -39,7 +39,7 @@ function AppContent() {
 
   return (
     <div className="min-h-screen bg-[#faf8f5] text-stone-900 flex flex-col font-sans">
-      {/* Header Corporativo Transpanorama */}
+      {/* Header Corporativo */}
       <Header
         onOpenLogin={() => setAbaAtiva('admin')}
         onOpenNovoDistrato={() => setModalNovoDistratoAberto(true)}

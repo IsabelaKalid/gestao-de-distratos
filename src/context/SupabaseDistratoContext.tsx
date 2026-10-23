@@ -166,6 +166,12 @@ interface DistratoContextType {
 
 const DistratoContext = createContext<DistratoContextType | null>(null);
 
+// Registros antigos guardavam o nome da empresa como responsável pelo custo.
+const normalizarResponsavelCusto = <T extends { responsavelCusto?: string }>(item: T): T =>
+  item.responsavelCusto && item.responsavelCusto !== "Agregado"
+    ? { ...item, responsavelCusto: "Empresa" }
+    : item;
+
 export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -223,7 +229,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
         const verificacoes = modelos.map((modelo) => {
           const existente = distrato.verificacoes?.find((item) => item.tipo === modelo.tipo);
           if (!existente) return modelo;
-          const lancamentosOriginais = existente.lancamentos || modelo.lancamentos || [];
+          const lancamentosOriginais = (existente.lancamentos || modelo.lancamentos || []).map(normalizarResponsavelCusto);
           const lancamentos = lancamentosOriginais
             .filter((lancamento) => {
               if (idsLancamentosVistos.has(lancamento.id)) return false;
@@ -251,7 +257,7 @@ export const DistratoProvider: React.FC<{ children: React.ReactNode }> = ({
           const perdeuDuplicados = lancamentos.length < lancamentosOriginais.length;
           return {
             ...modelo,
-            ...existente,
+            ...normalizarResponsavelCusto(existente),
             id: modelo.id,
             tipo: modelo.tipo,
             titulo: modelo.titulo,

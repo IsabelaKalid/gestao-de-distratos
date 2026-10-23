@@ -64,13 +64,13 @@ export function calcularDividaTotal(distrato: Distrato): number {
       if (v.lancamentos?.length) {
         total += v.lancamentos
           .filter((lancamento) =>
-            lancamento.responsavelCusto !== 'Transpanorama' &&
+            lancamento.responsavelCusto !== 'Empresa' &&
             lancamento.auditoriaTipo !== 'Conferência'
           )
           .reduce((soma, lancamento) => soma + Number(lancamento.valor || 0), 0);
         continue;
       }
-      if (v.responsavelCusto === 'Transpanorama') continue;
+      if (v.responsavelCusto === 'Empresa') continue;
       if (v.tipo === 'camera_rastreador') {
         total += v.lancamentos?.length
           ? v.valor || 0

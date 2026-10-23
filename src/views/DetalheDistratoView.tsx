@@ -1231,7 +1231,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
   const saldoRestante = calcularSaldoRestante(distrato);
   const totalExtrasAuditoria = distrato.verificacoes
     .flatMap((verificacao) => verificacao.lancamentos || [])
-    .filter((lancamento) => lancamento.auditoriaTipo === "Nova pendência" && lancamento.responsavelCusto !== "Transpanorama")
+    .filter((lancamento) => lancamento.auditoriaTipo === "Nova pendência" && lancamento.responsavelCusto !== "Empresa")
     .reduce((total, lancamento) => total + Number(lancamento.valor || 0), 0);
   const categoriaPorTipo: Record<string, NonNullable<Pagamento["categoria"]>> = {
     aluguel_equipamento: "Aluguel",
@@ -1267,7 +1267,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
         return verificacao.lancamentos
           .filter((lancamento) =>
             Number(lancamento.valor) > 0 &&
-            lancamento.responsavelCusto !== "Transpanorama" &&
+            lancamento.responsavelCusto !== "Empresa" &&
             lancamento.auditoriaTipo !== "Conferência"
           )
           .map((lancamento) => ({
@@ -2219,7 +2219,7 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                 registrosAuditoria.every((item) => item.auditoriaStatus === "Concluída");
               const recolhida = verificacoesRecolhidas.has(v.id);
               const lancamentosFinanceiros = (v.lancamentos || []).filter(
-                (item) => item.auditoriaTipo !== "Conferência" && Number(item.valor) > 0 && item.responsavelCusto !== "Transpanorama",
+                (item) => item.auditoriaTipo !== "Conferência" && Number(item.valor) > 0 && item.responsavelCusto !== "Empresa",
               );
               const categoriaQuitada = lancamentosFinanceiros.length > 0 &&
                 lancamentosFinanceiros.every((item) => situacaoDivida(item.id, Number(item.valor)).texto === "Quitado");
@@ -2631,16 +2631,16 @@ export const DetalheDistratoView: React.FC<DetalheDistratoViewProps> = ({
                             onChange={(event) =>
                               setFormVerif((prev) => ({
                                 ...prev,
-                                responsavelCusto: event.target.value as "Agregado" | "Transpanorama",
+                                responsavelCusto: event.target.value as "Agregado" | "Empresa",
                               }))
                             }
                             className="mt-1 w-full sm:max-w-sm px-3 py-2 border border-stone-300 rounded-lg bg-white font-normal"
                           >
                             <option value="Agregado">Agregado</option>
-                            <option value="Transpanorama">Transpanorama</option>
+                            <option value="Empresa">Empresa</option>
                           </select>
                           <span className="mt-1 block font-normal text-stone-500">
-                            Valores da Transpanorama ficam registrados, mas não compõem a dívida do agregado.
+                            Valores da empresa ficam registrados, mas não compõem a dívida do agregado.
                           </span>
                         </label>
                       )}
