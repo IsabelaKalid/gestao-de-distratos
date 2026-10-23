@@ -4,6 +4,24 @@ Sistema web para conduzir o encerramento de contratos de agregados (transportado
 
 Feito com React e Supabase, com contas individuais, aprovação pela supervisão e dados compartilhados entre toda a equipe.
 
+![Painel geral do Distravia](docs/screenshots/painel.png)
+
+## Telas
+
+> As imagens usam dados fictícios.
+
+| Lista de distratos | Detalhe do distrato |
+| --- | --- |
+| ![Lista de distratos com busca, filtros e situação financeira](docs/screenshots/distratos.png) | ![Detalhe do distrato com dívida, pagamentos e verificações](docs/screenshots/detalhe.png) |
+| **Fila de tarefas** | **Tela de acesso** |
+| ![Fila de tarefas por departamento](docs/screenshots/tarefas.png) | ![Tela de acesso ao sistema](docs/screenshots/login.png) |
+
+<p align="center">
+  <img src="docs/screenshots/celular.png" alt="Painel no celular" width="280">
+  <br>
+  <sub>Layout responsivo no celular</sub>
+</p>
+
 ## Funcionalidades
 
 ### Fluxo do distrato
